@@ -1,6 +1,7 @@
 module Main where
 
 import System.Process
+import System.IO
 
 import Lib
 
@@ -9,12 +10,13 @@ typeScriptLocation =
 
 main :: IO ()
 main = do
-  (a, hout, b, c) <-
+  (_, hout, _, _) <-
     createProcess (proc "ls" []){ std_out = CreatePipe }
 
+  case hout of
+    Just (stuff) -> do
+      hGetLine stuff >>= print
+
   print $ hout
-  print $ a
-  print $ b
-  -- print $ c
 
   pure ()
