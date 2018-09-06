@@ -8,14 +8,25 @@ import Lib
 typeScriptLocation =
   "/home/ian/code/jupiter/node_modules/typescript/bin/tsserver"
 
+exampleFile =
+  "/home/ian/code/jupiter/packages/@ecomm/checkbox/Checkbox.tsx"
+
+command =
+  "{ \"seq\": 0, \"type\": \"request\", \"command\": \"open\", \"arguments\": { \"file\": " ++ exampleFile ++ " } }"
+
 main :: IO ()
 main = do
-  (_, hout, _, _) <-
-    createProcess (proc "ls" []){ std_out = CreatePipe }
+  (hin, hout, _, _) <-
+    createProcess_ "wew" (proc typeScriptLocation []){ std_out = CreatePipe
+                                                     , std_in  = CreatePipe }
+
+  case hin of
+    Just (stuff) -> do
+      hPutStrLn stuff command
 
   case hout of
     Just (stuff) -> do
-      hGetLine stuff >>= print
+      hGetContents stuff >>= print
 
   print $ hout
 
