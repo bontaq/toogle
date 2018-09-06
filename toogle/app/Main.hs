@@ -12,7 +12,7 @@ exampleFile =
   "/home/ian/code/jupiter/packages/@ecomm/checkbox/Checkbox.tsx"
 
 command =
-  "{ \"seq\": 0, \"type\": \"request\", \"command\": \"open\", \"arguments\": { \"file\": " ++ exampleFile ++ " } }"
+  "{ \"seq\": 0, \"type\": \"request\", \"command\": \"open\", \"arguments\": { \"file\": " ++ (show exampleFile) ++ " } }"
 
 main :: IO ()
 main = do
