@@ -3,6 +3,7 @@ module Main where
 import System.Process
 import System.IO
 import System.Directory
+import Control.Monad
 
 import Lib
 
@@ -21,8 +22,8 @@ main = do
   let tsserver = curDir ++ "/tsserver/node_modules/typescript/bin/tsserver"
 
   (hin, hout, _, _) <-
-    createProcess_ "wew" (proc tsserver []){ std_out = CreatePipe
-                                           , std_in  = CreatePipe }
+    createProcess_ "server" (proc tsserver []){ std_out = CreatePipe
+                                              , std_in  = CreatePipe }
 
   case hin of
     Just (stuff) -> do
@@ -30,7 +31,8 @@ main = do
 
   case hout of
     Just (stuff) -> do
-      hGetContents stuff >>= print
+      forever $ do
+         hGetLine stuff >>= print
 
   print $ tsserver
 
