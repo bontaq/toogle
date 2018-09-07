@@ -1,3 +1,5 @@
 .stack-work/
 toogle.cabal
 *~
+node_modules
+

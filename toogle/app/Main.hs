@@ -2,6 +2,7 @@ module Main where
 
 import System.Process
 import System.IO
+import System.Directory
 
 import Lib
 
@@ -16,9 +17,12 @@ command =
 
 main :: IO ()
 main = do
+  curDir <- makeAbsolute =<< getCurrentDirectory
+  let tsserver = curDir ++ "/tsserver/node_modules/typescript/bin/tsserver"
+
   (hin, hout, _, _) <-
-    createProcess_ "wew" (proc typeScriptLocation []){ std_out = CreatePipe
-                                                     , std_in  = CreatePipe }
+    createProcess_ "wew" (proc tsserver []){ std_out = CreatePipe
+                                           , std_in  = CreatePipe }
 
   case hin of
     Just (stuff) -> do
@@ -28,6 +32,6 @@ main = do
     Just (stuff) -> do
       hGetContents stuff >>= print
 
-  print $ hout
+  print $ tsserver
 
   pure ()
