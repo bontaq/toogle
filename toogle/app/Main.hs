@@ -21,18 +21,13 @@ main = do
   curDir <- makeAbsolute =<< getCurrentDirectory
   let tsserver = curDir ++ "/tsserver/node_modules/typescript/bin/tsserver"
 
-  (hin, hout, _, _) <-
-    createProcess_ "server" (proc tsserver []){ std_out = CreatePipe
-                                              , std_in  = CreatePipe }
+  (hin, hout, err, pid) <-
+    runInteractiveProcess tsserver [] Nothing Nothing
 
-  case hin of
-    Just (stuff) -> do
-      hPutStrLn stuff command
+  hPutStrLn hin command
 
-  case hout of
-    Just (stuff) -> do
-      forever $ do
-         hGetLine stuff >>= print
+  forever $ do
+    hGetLine hout >>= print
 
   print $ tsserver
 
