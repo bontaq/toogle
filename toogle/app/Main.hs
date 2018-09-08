@@ -7,9 +7,6 @@ import Control.Monad
 
 import Lib
 
-typeScriptLocation =
-  "/home/ian/code/jupiter/node_modules/typescript/bin/tsserver"
-
 exampleFile =
   "/home/ian/code/jupiter/packages/@ecomm/checkbox/Checkbox.tsx"
 
