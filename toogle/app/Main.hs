@@ -5,6 +5,11 @@ import System.IO
 import System.Directory
 import Control.Monad
 
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as S
+import           System.IO.Streams (Generator, InputStream, OutputStream)
+import qualified System.IO.Streams as Streams
+
 import Lib
 
 exampleFile =
@@ -12,6 +17,12 @@ exampleFile =
 
 command =
   "{ \"seq\": 0, \"type\": \"request\", \"command\": \"open\", \"arguments\": { \"file\": " ++ (show exampleFile) ++ " } }"
+
+writeConsole :: IO (OutputStream ByteString)
+writeConsole = Streams.makeOutputStream $ \m -> case m of
+  Just bs -> S.putStrLn bs
+  Nothing -> pure ()
+
 
 main :: IO ()
 main = do
@@ -22,9 +33,11 @@ main = do
     runInteractiveProcess tsserver [] Nothing Nothing
 
   hPutStrLn hin command
+  hPutStrLn hin command
 
-  forever $ do
-    hGetLine hout >>= print
+  inputStream <- Streams.handleToInputStream hout
+  outputStream <- writeConsole
+  Streams.connect inputStream outputStream
 
   print $ tsserver
 
