@@ -46,12 +46,13 @@ main = do
   (hin, hout, err, pid) <-
     runInteractiveProcess tsserver [] Nothing Nothing
 
-  hPutStrLn hin command
-  hPutStrLn hin command
-
-  mkInHandler hin
   mkOutHandler hout
+  cmdInput <- mkInHandler hin
 
+  Streams.write (Just command) cmdInput
+
+  hPutStrLn hin command
+  hPutStrLn hin command
 
   print $ tsserver
 
