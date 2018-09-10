@@ -16,13 +16,23 @@ exampleFile =
   "/home/ian/code/jupiter/packages/@ecomm/checkbox/Checkbox.tsx"
 
 command =
-  "{ \"seq\": 0, \"type\": \"request\", \"command\": \"open\", \"arguments\": { \"file\": " ++ (show exampleFile) ++ " } }"
+  "{ \"seq\": 0, \"type\": \"request\", \"command\": \"open\", \"arguments\": { \"file\": "
+  ++ (show exampleFile)
+  ++ " } }"
 
 writeConsole :: IO (OutputStream ByteString)
 writeConsole = Streams.makeOutputStream $ \m -> case m of
   Just bs -> S.putStrLn bs
   Nothing -> pure ()
 
+mkOutHandler :: Handle -> IO ()
+mkOutHandler hout = do
+  inputStream <- Streams.handleToInputStream hout
+  outputStream <- writeConsole
+  Streams.connect inputStream outputStream
+
+mkInHandler hin = do
+  pure ()
 
 main :: IO ()
 main = do
@@ -35,9 +45,7 @@ main = do
   hPutStrLn hin command
   hPutStrLn hin command
 
-  inputStream <- Streams.handleToInputStream hout
-  outputStream <- writeConsole
-  Streams.connect inputStream outputStream
+  mkOutHandler hout
 
   print $ tsserver
 
