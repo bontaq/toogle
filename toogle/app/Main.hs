@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
 import System.Process
@@ -25,14 +26,17 @@ writeConsole = Streams.makeOutputStream $ \m -> case m of
   Just bs -> S.putStrLn bs
   Nothing -> pure ()
 
-mkOutHandler :: Handle -> IO ()
+mkOutHandler :: Handle -> IO (OutputStream ByteString)
 mkOutHandler hout = do
   inputStream <- Streams.handleToInputStream hout
   outputStream <- writeConsole
   Streams.connect inputStream outputStream
+  pure outputStream
 
+mkInHandler :: Handle -> IO (OutputStream ByteString)
 mkInHandler hin = do
-  pure ()
+  s <- Streams.handleToOutputStream hin
+  pure s
 
 main :: IO ()
 main = do
@@ -45,7 +49,9 @@ main = do
   hPutStrLn hin command
   hPutStrLn hin command
 
+  mkInHandler hin
   mkOutHandler hout
+
 
   print $ tsserver
 
