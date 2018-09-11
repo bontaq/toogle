@@ -8,18 +8,29 @@ import Control.Monad
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as S
+import qualified Data.ByteString.Char8 as BC
 import           System.IO.Streams (Generator, InputStream, OutputStream)
 import qualified System.IO.Streams as Streams
 
 import Lib
 
 exampleFile =
-  "/home/ian/code/jupiter/packages/@ecomm/checkbox/Checkbox.tsx"
+  "/Users/iandavidson/jupiter/packages/@ecomm/checkbox/Checkbox.tsx"
 
-command =
+openCommand =
   "{ \"seq\": 0, \"type\": \"request\", \"command\": \"open\", \"arguments\": { \"file\": "
   ++ (show exampleFile)
-  ++ " } }"
+  ++ " } }\n"
+
+navtreeCommand =
+  "{ \"seq\": 1, \"type\": \"request\", \"command\": \"navtree-full\", \"arguments\": { \"file\": "
+  ++ (show exampleFile)
+  ++ " } }\n"
+
+infoCommand =
+  "{ \"seq\": 1, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
+  ++ (show exampleFile)
+  ++ ", \"line\": 0, \"offset\": 0 } }\n"
 
 writeConsole :: IO (OutputStream ByteString)
 writeConsole = Streams.makeOutputStream $ \m -> case m of
@@ -46,13 +57,14 @@ main = do
   (hin, hout, err, pid) <-
     runInteractiveProcess tsserver [] Nothing Nothing
 
-  mkOutHandler hout
   cmdInput <- mkInHandler hin
+  Streams.write (Just $ BC.pack openCommand) cmdInput
+  Streams.write (Just $ BC.pack navtreeCommand) cmdInput
 
-  Streams.write (Just command) cmdInput
+  mkOutHandler hout
 
-  hPutStrLn hin command
-  hPutStrLn hin command
+--  hPutStrLn hin command
+--  hPutStrLn hin command
 
   print $ tsserver
 
