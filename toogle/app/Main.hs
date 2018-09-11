@@ -5,6 +5,7 @@ import System.Process
 import System.IO
 import System.Directory
 import Control.Monad
+import Control.Concurrent (forkIO, threadDelay)
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as S
@@ -37,12 +38,12 @@ writeConsole = Streams.makeOutputStream $ \m -> case m of
   Just bs -> S.putStrLn bs
   Nothing -> pure ()
 
-mkOutHandler :: Handle -> IO (OutputStream ByteString)
+mkOutHandler :: Handle -> IO ()
 mkOutHandler hout = do
   inputStream <- Streams.handleToInputStream hout
   outputStream <- writeConsole
   Streams.connect inputStream outputStream
-  pure outputStream
+  pure ()
 
 mkInHandler :: Handle -> IO (OutputStream ByteString)
 mkInHandler hin = do
@@ -69,11 +70,10 @@ main = do
   (hin, hout, err) <- mkProcess tsserver
 
   cmdInput <- mkInHandler hin
-  Streams.write (Just $ BC.pack openCommand) cmdInput
-  Streams.write (Just $ BC.pack navtreeCommand) cmdInput
+  forkIO $ Streams.write (Just $ BC.pack openCommand) cmdInput
 
-  mkOutHandler hout
+  forkIO $ mkOutHandler hout
 
-  print $ tsserver
+  forkIO $ Streams.write (Just $ BC.pack navtreeCommand) cmdInput
 
-  pure ()
+  threadDelay(1000000000)
