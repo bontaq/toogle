@@ -49,22 +49,30 @@ mkInHandler hin = do
   s <- Streams.handleToOutputStream hin
   pure s
 
+fromJust :: Maybe p -> p
+fromJust Nothing  = error "Does not exist"
+fromJust (Just t) = t
+
+mkProcess :: FilePath -> IO (Handle, Handle, Handle)
+mkProcess tsserverLocation = do
+  (hin, hout, err, pid) <-
+    createProcess_ "tsserver" (proc tsserverLocation []){ std_in  = CreatePipe
+                                                        , std_out = CreatePipe
+                                                        , std_err = CreatePipe }
+  return (fromJust hin, fromJust hout, fromJust err)
+
 main :: IO ()
 main = do
   curDir <- makeAbsolute =<< getCurrentDirectory
   let tsserver = curDir ++ "/tsserver/node_modules/typescript/bin/tsserver"
 
-  (hin, hout, err, pid) <-
-    runInteractiveProcess tsserver [] Nothing Nothing
+  (hin, hout, err) <- mkProcess tsserver
 
   cmdInput <- mkInHandler hin
   Streams.write (Just $ BC.pack openCommand) cmdInput
   Streams.write (Just $ BC.pack navtreeCommand) cmdInput
 
   mkOutHandler hout
-
---  hPutStrLn hin command
---  hPutStrLn hin command
 
   print $ tsserver
 
