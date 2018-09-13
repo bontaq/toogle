@@ -26,9 +26,9 @@ navtreeCommand filePath =
   ++ " } }\n"
 
 infoCommand filePath =
-  "{ \"seq\": 1, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
+  "{ \"seq\": 2, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
   ++ (show filePath)
-  ++ ", \"line\": 0, \"offset\": 0 } }\n"
+  ++ ", \"line\": 1, \"offset\": 63 } }\n"
 
 writeConsole :: IO (OutputStream ByteString)
 writeConsole = Streams.makeOutputStream $ \m -> case m of
@@ -78,6 +78,12 @@ main = do
 
   threadDelay(1000000)
 
-  forkIO $ Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
+  forkIO $ do
+    Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
+    Streams.write (Just . BC.pack $ infoCommand exampleFile) cmdInput
+
+  -- fascinating.  the commands are one-based offset for line + offset
+  -- the server's responses are zero based for lines, 1 based for offset
+  -- it seems.
 
   threadDelay(1000000000)
