@@ -6,6 +6,7 @@ import System.IO
 import System.Directory
 import Control.Monad
 import Control.Concurrent (forkIO, threadDelay)
+import qualified Control.Concurrent.MVar as MV
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as S
@@ -35,11 +36,17 @@ writeConsole = Streams.makeOutputStream $ \m -> case m of
   Just bs -> S.putStrLn bs
   Nothing -> pure ()
 
-mkOutHandler :: Handle -> IO ()
-mkOutHandler hout = do
+mkOutHandler :: Queue -> Handle -> IO ()
+mkOutHandler (Queue mvar) hout = do
   inputStream <- Streams.handleToInputStream hout
-  outputStream <- writeConsole
-  Streams.connect inputStream outputStream
+  outStream <- writeConsole
+  Streams.supply inputStream outStream
+  Streams.supply inputStream
+    (Streams.makeOutputStream $ \m -> case m of
+        Just bs -> S.putStrLn bs
+        Nothing -> pure ())
+  -- outputStream <- writeConsole
+  -- Streams.connect inputStream outputStream
   pure ()
 
 mkInHandler :: Handle -> IO (OutputStream ByteString)
@@ -59,6 +66,8 @@ mkProcess tsserverLocation = do
                                                         , std_err = CreatePipe }
   return (fromJust hin, fromJust hout, fromJust err)
 
+data Queue = Queue (MV.MVar String)
+
 main :: IO ()
 main = do
   curDir <- makeAbsolute =<< getCurrentDirectory
@@ -67,10 +76,12 @@ main = do
 
   (hin, hout, err) <- mkProcess tsserver
 
+
   cmdInput <- mkInHandler hin
   forkIO $ Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
 
-  forkIO $ mkOutHandler hout
+  dats <- MV.newMVar ""
+  forkIO $ mkOutHandler (Queue dats) hout
 
   -- ok, so we have to wait until the telemetryEventName projectInfo
   -- looks like that only happens with larger projects, maybe we need to
@@ -85,5 +96,7 @@ main = do
   -- fascinating.  the commands are one-based offset for line + offset
   -- the server's responses are zero based for lines, 1 based for offset
   -- it seems.
+
+  -- outHandler needs to write to an mvar.
 
   threadDelay(1000000000)
