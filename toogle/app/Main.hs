@@ -15,22 +15,19 @@ import qualified System.IO.Streams as Streams
 
 import Lib
 
-exampleFile =
-  "/Users/iandavidson/jupiter/packages/@ecomm/checkbox/Checkbox.tsx"
-
-openCommand =
+openCommand filePath =
   "{ \"seq\": 0, \"type\": \"request\", \"command\": \"open\", \"arguments\": { \"file\": "
-  ++ (show exampleFile)
+  ++ (show filePath)
   ++ " } }\n"
 
-navtreeCommand =
+navtreeCommand filePath =
   "{ \"seq\": 1, \"type\": \"request\", \"command\": \"navtree-full\", \"arguments\": { \"file\": "
-  ++ (show exampleFile)
+  ++ (show filePath)
   ++ " } }\n"
 
-infoCommand =
+infoCommand filePath =
   "{ \"seq\": 1, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
-  ++ (show exampleFile)
+  ++ (show filePath)
   ++ ", \"line\": 0, \"offset\": 0 } }\n"
 
 writeConsole :: IO (OutputStream ByteString)
@@ -65,15 +62,22 @@ mkProcess tsserverLocation = do
 main :: IO ()
 main = do
   curDir <- makeAbsolute =<< getCurrentDirectory
-  let tsserver = curDir ++ "/tsserver/node_modules/typescript/bin/tsserver"
+  let tsserver    = curDir ++ "/tsserver/node_modules/typescript/bin/tsserver"
+      exampleFile = curDir ++ "/testing.ts"
 
   (hin, hout, err) <- mkProcess tsserver
 
   cmdInput <- mkInHandler hin
-  forkIO $ Streams.write (Just $ BC.pack openCommand) cmdInput
+  forkIO $ Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
 
   forkIO $ mkOutHandler hout
 
-  forkIO $ Streams.write (Just $ BC.pack navtreeCommand) cmdInput
+  -- ok, so we have to wait until the telemetryEventName projectInfo
+  -- looks like that only happens with larger projects, maybe we need to
+  -- listen to the PID returned bytestring typingsInstallerPid to close?
+
+  threadDelay(1000000)
+
+  forkIO $ Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
 
   threadDelay(1000000000)
