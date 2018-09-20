@@ -1,0 +1,13 @@
+* Example response from navtree-full
+  - Note taken on [2018-09-19 Wed 20:31] \\
+    {"seq":0,"type":"response","command":"navtree-full","request_seq":1,
+     "success":true,"body":{"text":"<global>","kind":"script","kindModifiers":"",
+     "spans":[{"start":0,"length":114}],
+     "childItems":[{"text":"a","kind":"const","kindModifiers":"",
+                    "spans":[{"start":6,"length":47}],
+                    "nameSpan":{"start":6,"length":1}},
+                   {"text":"doSomething","kind":"const","kindModifiers":"",
+                    "spans":[{"start":62,"length":51}],
+                    "nameSpan":{"start":62,"length":11}}]}}
+* Let's get this parsing with aeson
+** First we need to drop the first part of output

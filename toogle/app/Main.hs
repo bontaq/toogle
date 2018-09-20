@@ -41,12 +41,6 @@ mkOutHandler (Queue mvar) hout = do
   inputStream <- Streams.handleToInputStream hout
   outStream <- writeConsole
   Streams.supply inputStream outStream
-  Streams.supply inputStream
-    (Streams.makeOutputStream $ \m -> case m of
-        Just bs -> S.putStrLn bs
-        Nothing -> pure ())
-  -- outputStream <- writeConsole
-  -- Streams.connect inputStream outputStream
   pure ()
 
 mkInHandler :: Handle -> IO (OutputStream ByteString)
