@@ -49,6 +49,7 @@ executable toogle-exe
               , directory
               , process
               , attoparsec
+              , aeson
               , toogle
   default-language: Haskell2010
 
