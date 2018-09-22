@@ -7,6 +7,7 @@ import System.Directory
 import Control.Monad
 import Control.Concurrent (forkIO, threadDelay)
 import qualified Control.Concurrent.MVar as MV
+import Data.Attoparsec.ByteString as Atto
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as S
@@ -37,11 +38,38 @@ writeConsole = Streams.makeOutputStream $ \m -> case m of
     BC.putStrLn $ (BC.append "this is a line: " bs)
   Nothing -> pure ()
 
+--
+-- Parsing
+--
+-- raw -> attoparsec -> aeson
+--
+-- TSServer returns two lines we don't need before hitting the raw JSON
+-- (content-length & a newline)
+-- so we need to dump those before we can parse the response with aeson
+
+handleRaw = do
+  -- now that's a lazy way to get to the JSON
+  _ <- Atto.takeWhile $ Atto.notInClass "{"
+  -- just consumes and returns the rest
+  takeByteString
+
+
+toJSONFromTS :: IO (OutputStream ByteString)
+toJSONFromTS = Streams.makeOutputStream $ \m -> case m of
+  Just raw -> do
+    result <- pure $ Atto.parseOnly handleRaw raw
+    BC.putStrLn . BC.pack $ show $ result
+  Nothing -> pure ()
+
 mkOutHandler :: Queue -> Handle -> IO ()
 mkOutHandler (Queue mvar) hout = do
   inputStream <- Streams.handleToInputStream hout
-  outStream <- writeConsole
-  Streams.supply inputStream outStream
+-- outStream <- writeConsole
+--  forkIO $
+--    Streams.supply inputStream outStream
+  toJSONStream <- toJSONFromTS
+  forkIO $
+    Streams.supply inputStream toJSONStream
   pure ()
 
 mkInHandler :: Handle -> IO (OutputStream ByteString)

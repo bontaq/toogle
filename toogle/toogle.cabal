@@ -48,6 +48,7 @@ executable toogle-exe
               , bytestring
               , directory
               , process
+              , attoparsec
               , toogle
   default-language: Haskell2010
 
