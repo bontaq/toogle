@@ -1,5 +1,8 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
+
+import GHC.Generics
 
 import System.Process
 import System.IO
@@ -8,6 +11,9 @@ import Control.Monad
 import Control.Concurrent (forkIO, threadDelay)
 import qualified Control.Concurrent.MVar as MV
 import Data.Attoparsec.ByteString as Atto
+import           Data.Aeson
+-- import           Data.Aeson.Lens        (key, _String)
+import qualified Data.Aeson.Types       as DAT
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as S
@@ -53,13 +59,40 @@ handleRaw = do
   -- just consumes and returns the rest
   takeByteString
 
-
 toJSONFromTS :: IO (OutputStream ByteString)
 toJSONFromTS = Streams.makeOutputStream $ \m -> case m of
   Just raw -> do
     result <- pure $ Atto.parseOnly handleRaw raw
-    BC.putStrLn . BC.pack $ show $ result
+    case result of
+      Right json -> do
+        BC.putStrLn . BC.pack $ show $ fromRawJSONToJSON $ json
+        pure ()
+      Left  _    -> error "parsing messed up"
   Nothing -> pure ()
+
+--
+-- From attoparsec to real JSON
+--
+
+data MsgChild = MsgChild {
+  text :: String
+  } deriving (Show, Generic)
+instance FromJSON MsgChild
+
+data MsgBody = MsgBody {
+  childItems :: [MsgChild]
+  } deriving (Show, Generic)
+instance FromJSON MsgBody
+
+data Msg = Msg {
+  seq :: Integer
+  , body :: MsgBody
+  } deriving (Show, Generic)
+instance FromJSON Msg
+
+fromRawJSONToJSON ::
+  ByteString -> Maybe Msg
+fromRawJSONToJSON a = decodeStrict a :: Maybe Msg
 
 mkOutHandler :: Queue -> Handle -> IO ()
 mkOutHandler (Queue mvar) hout = do
