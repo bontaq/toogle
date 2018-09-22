@@ -33,7 +33,8 @@ infoCommand filePath =
 
 writeConsole :: IO (OutputStream ByteString)
 writeConsole = Streams.makeOutputStream $ \m -> case m of
-  Just bs -> S.putStrLn bs
+  Just bs ->
+    BC.putStrLn $ (BC.append "this is a line: " bs)
   Nothing -> pure ()
 
 mkOutHandler :: Queue -> Handle -> IO ()

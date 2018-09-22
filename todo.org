@@ -11,3 +11,4 @@
                     "nameSpan":{"start":62,"length":11}}]}}
 * Let's get this parsing with aeson
 ** First we need to drop the first part of output
+*** DONE Even more first, we need to make sure the messages are separated
