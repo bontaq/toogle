@@ -50,6 +50,7 @@ executable toogle-exe
               , process
               , attoparsec
               , aeson
+              , stm
               , toogle
   default-language: Haskell2010
 

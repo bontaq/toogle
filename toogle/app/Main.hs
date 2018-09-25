@@ -10,7 +10,9 @@ import System.Process
 import System.IO
 import System.Directory
 import Control.Monad
+import Control.Monad.STM
 import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent.STM.TChan
 import qualified Control.Concurrent.MVar as MV
 import Data.Attoparsec.ByteString as Atto
 import           Data.Aeson
@@ -61,15 +63,16 @@ handleRaw = do
   -- just consumes and returns the rest
   takeByteString
 
-toJSONFromTS :: Queue -> IO (OutputStream ByteString)
-toJSONFromTS (Queue v) = Streams.makeOutputStream $ \m -> case m of
+toJSONFromTS :: TChan (Maybe Msg) -> IO (OutputStream ByteString)
+toJSONFromTS chan = Streams.makeOutputStream $ \m -> case m of
   Just raw -> do
     result <- pure $ Atto.parseOnly handleRaw raw
     case result of
       Right json -> do
         ans <- pure $ fromRawJSONToJSON json
-        msgs <- MV.takeMVar v
-        MV.putMVar v (ans : msgs)
+        atomically $ writeTChan chan ans
+--        msgs <- MV.takeMVar v
+--        MV.putMVar v (ans : msgs)
         putStrLn $ show ans
         pure ()
       Left  _    -> error "parsing messed up"
@@ -123,13 +126,13 @@ data Command = Command {
   } deriving (Show, Generic)
 instance ToJSON Command
 
-mkOutHandler :: Queue -> Handle -> IO ()
-mkOutHandler queue hout = do
+mkOutHandler :: TChan (Maybe Msg) -> Handle -> IO ()
+mkOutHandler chan hout = do
   inputStream <- Streams.handleToInputStream hout
 --  outStream <- writeConsole
 --  forkIO $
 --    Streams.supply inputStream outStream
-  toJSONStream <- toJSONFromTS queue
+  toJSONStream <- toJSONFromTS chan
   forkIO $
     Streams.supply inputStream toJSONStream
   pure ()
@@ -166,6 +169,18 @@ toQuickInfoCommand filePath offset =
 toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
   map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
 
+resultHandler :: FilePath -> OutputStream ByteString -> TChan (Maybe Msg) -> IO ()
+resultHandler fp cmdInput chan = do
+  newValue <- atomically $ readTChan chan
+  case newValue of
+    Just msg -> do
+      putStrLn . show $ toQuickInfoCommands fp msg
+      mapM_ (\x -> Streams.write (Just . BC.pack $ x) cmdInput) commands
+      -- mapM_ $ forkIO $ do Streams.write (Just . BC.pack) $ msg
+    Nothing  -> putStrLn "Nada"
+  -- putStrLn $ "read new value: " ++ show newValue
+  resultHandler fp cmdInput chan
+
 main :: IO ()
 main = do
   curDir <- makeAbsolute =<< getCurrentDirectory
@@ -177,8 +192,7 @@ main = do
   cmdInput <- mkInHandler hin
   forkIO $ Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
 
-  dats <- MV.newMVar []
-  forkIO $ mkOutHandler (Queue dats) hout
+  -- dats <- MV.newMVar []
 
   -- ok, so we have to wait until the telemetryEventName projectInfo
   -- looks like that only happens with larger projects, maybe we need to
@@ -186,36 +200,41 @@ main = do
 
   threadDelay(1000000)
 
-  let readLoop = loop
-        where
-          loop = do
-            s <- MV.takeMVar dats
-            case s of
-              [] -> do
-                MV.putMVar dats s
-                threadDelay(1000000)
-                loop
-              (m:rest) ->
-                case m of
-                  Nothing -> MV.putMVar dats rest
-                  Just msg -> do
-                    let commands = toQuickInfoCommands exampleFile msg
-                    putStrLn $ show commands
-                    -- putStrLn $ cmdInput
-                    forkIO $ do
-                      mapM_ (\x -> return $ Streams.write (Just . BC.pack $ x) cmdInput) commands
-                    pure ()
+  chan <- atomically $ newTChan
+  forkIO $ mkOutHandler chan hout
+  forkIO $ resultHandler exampleFile cmdInput chan
 
-            threadDelay(1000000)
-            loop
 
-  forkIO $ do readLoop
+--  let readLoop = loop
+--        where
+--          loop = do
+--            s <- MV.takeMVar dats
+--            case s of
+--              [] -> do
+--                MV.putMVar dats s
+--                threadDelay(1000000)
+--                loop
+--              (m:rest) ->
+--                case m of
+--                  Nothing -> MV.putMVar dats rest
+--                  Just msg -> do
+--                    let commands = toQuickInfoCommands exampleFile msg
+--                    -- putStrLn "wot"
+--                    putStrLn $ "something" ++  show commands
+--                    -- putStrLn $ cmdInput
+--                    mapM_ (\x -> Streams.write (Just . BC.pack $ x) cmdInput) commands
+--                    pure ()
+--
+--            threadDelay(1000000)
+--            loop
+
 
   -- putStrLn "hey?"
   forkIO $ do
     Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
     Streams.write (Just . BC.pack $ infoCommand exampleFile) cmdInput
 
+  -- forkIO $ do readLoop
 
   -- fascinating.  the commands are one-based offset for line + offset
   -- the server's responses are zero based for lines, 1 based for offset
