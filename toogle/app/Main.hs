@@ -60,14 +60,15 @@ handleRaw = do
   -- just consumes and returns the rest
   takeByteString
 
-toJSONFromTS :: IO (OutputStream ByteString)
-toJSONFromTS = Streams.makeOutputStream $ \m -> case m of
+toJSONFromTS :: Queue -> IO (OutputStream ByteString)
+toJSONFromTS queue = Streams.makeOutputStream $ \m -> case m of
   Just raw -> do
     result <- pure $ Atto.parseOnly handleRaw raw
     case result of
       Right json -> do
-        BC.putStrLn . BC.pack $ show $ fromRawJSONToJSON $ json
-        -- pure ()
+        ans <- pure $ fromRawJSONToJSON json
+        -- return $ Just ans
+        pure ()
       Left  _    -> error "parsing messed up"
   Nothing -> pure ()
 
@@ -120,12 +121,12 @@ data Command = Command {
 instance ToJSON Command
 
 mkOutHandler :: Queue -> Handle -> IO ()
-mkOutHandler (Queue mvar) hout = do
+mkOutHandler queue hout = do
   inputStream <- Streams.handleToInputStream hout
 --  outStream <- writeConsole
 --  forkIO $
 --    Streams.supply inputStream outStream
-  toJSONStream <- toJSONFromTS
+  toJSONStream <- toJSONFromTS queue
   forkIO $
     Streams.supply inputStream toJSONStream
   pure ()
@@ -147,7 +148,7 @@ mkProcess tsserverLocation = do
                                                         , std_err = CreatePipe }
   return (fromJust hin, fromJust hout, fromJust err)
 
-data Queue = Queue (MV.MVar String)
+data Queue = Queue (MV.MVar [(Maybe Msg)])
 
 main :: IO ()
 main = do
@@ -157,12 +158,10 @@ main = do
 
   (hin, hout, err) <- mkProcess tsserver
 
-  -- putStrLn =<< hGetContents err
-
   cmdInput <- mkInHandler hin
   forkIO $ Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
 
-  dats <- MV.newMVar ""
+  dats <- MV.newMVar []
   forkIO $ mkOutHandler (Queue dats) hout
 
   -- ok, so we have to wait until the telemetryEventName projectInfo
