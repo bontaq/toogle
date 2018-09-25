@@ -18,3 +18,4 @@
     1 - Push quickinfo commands to tsserver
     2 - Match on the replies and send to stdout
 * DONE Improve parsing of navtree return command
+* TODO Use lenses to clean up record access

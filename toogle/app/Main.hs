@@ -153,6 +153,9 @@ mkProcess tsserverLocation = do
 
 data Queue = Queue (MV.MVar [(Maybe Msg)])
 
+toQuickInfoCommand Msg{body=body} =
+  body
+
 main :: IO ()
 main = do
   curDir <- makeAbsolute =<< getCurrentDirectory
@@ -182,15 +185,13 @@ main = do
                 MV.putMVar dats s
                 threadDelay(1000000)
                 loop
-              (m:rest) -> do
+              (m:rest) ->
                 case m of
                   Nothing -> MV.putMVar dats rest
-                  Just (Msg a b) -> putStrLn $ show b
+                  Just (Msg a b) -> putStrLn $ "something" ++  show b
 
-                -- putStrLn $ show m
-                MV.putMVar dats rest
-                threadDelay(1000000)
-                loop
+            threadDelay(1000000)
+            loop
 
   forkIO readLoop
 
