@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 module Main where
 
 import GHC.Generics
@@ -66,7 +67,7 @@ toJSONFromTS = Streams.makeOutputStream $ \m -> case m of
     case result of
       Right json -> do
         BC.putStrLn . BC.pack $ show $ fromRawJSONToJSON $ json
-        pure ()
+        -- pure ()
       Left  _    -> error "parsing messed up"
   Nothing -> pure ()
 
@@ -74,8 +75,15 @@ toJSONFromTS = Streams.makeOutputStream $ \m -> case m of
 -- From attoparsec to real JSON
 --
 
+data MsgSpan = MsgSpan {
+  start :: Integer
+  } deriving (Show, Generic)
+instance FromJSON MsgSpan
+
 data MsgChild = MsgChild {
   text :: String
+  , kind :: String
+  , spans :: [MsgSpan]
   } deriving (Show, Generic)
 instance FromJSON MsgChild
 
@@ -94,10 +102,27 @@ fromRawJSONToJSON ::
   ByteString -> Maybe Msg
 fromRawJSONToJSON a = decodeStrict a :: Maybe Msg
 
+--
+-- From real JSON to commands for the server
+--
+
+data Argument = Argument {
+  file :: String
+  } deriving (Show, Generic)
+instance ToJSON Argument
+
+data Command = Command {
+  seq :: Integer
+  , _type :: String
+  , command :: String
+  , arguments :: Argument
+  } deriving (Show, Generic)
+instance ToJSON Command
+
 mkOutHandler :: Queue -> Handle -> IO ()
 mkOutHandler (Queue mvar) hout = do
   inputStream <- Streams.handleToInputStream hout
--- outStream <- writeConsole
+--  outStream <- writeConsole
 --  forkIO $
 --    Streams.supply inputStream outStream
   toJSONStream <- toJSONFromTS
@@ -132,6 +157,7 @@ main = do
 
   (hin, hout, err) <- mkProcess tsserver
 
+  -- putStrLn =<< hGetContents err
 
   cmdInput <- mkInHandler hin
   forkIO $ Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
@@ -145,6 +171,7 @@ main = do
 
   threadDelay(1000000)
 
+  -- putStrLn "hey?"
   forkIO $ do
     Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
     Streams.write (Just . BC.pack $ infoCommand exampleFile) cmdInput

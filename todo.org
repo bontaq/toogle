@@ -9,6 +9,12 @@
                    {"text":"doSomething","kind":"const","kindModifiers":"",
                     "spans":[{"start":62,"length":51}],
                     "nameSpan":{"start":62,"length":11}}]}}
-* Let's get this parsing with aeson
-** First we need to drop the first part of output
+* DONE Let's get this parsing with aeson
+** DONE First we need to drop the first part of output
 *** DONE Even more first, we need to make sure the messages are separated
+* TODO Another step with the output to transform it into commands
+  - Note taken on [2018-09-24 Mon 20:18] \\
+    For now, let's keep it simple.
+    1 - Push quickinfo commands to tsserver
+    2 - Match on the replies and send to stdout
+* DONE Improve parsing of navtree return command
