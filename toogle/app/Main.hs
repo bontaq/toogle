@@ -61,13 +61,15 @@ handleRaw = do
   takeByteString
 
 toJSONFromTS :: Queue -> IO (OutputStream ByteString)
-toJSONFromTS queue = Streams.makeOutputStream $ \m -> case m of
+toJSONFromTS (Queue v) = Streams.makeOutputStream $ \m -> case m of
   Just raw -> do
     result <- pure $ Atto.parseOnly handleRaw raw
     case result of
       Right json -> do
         ans <- pure $ fromRawJSONToJSON json
-        -- return $ Just ans
+        msgs <- MV.takeMVar v
+        MV.putMVar v (ans : msgs)
+        putStrLn $ show ans
         pure ()
       Left  _    -> error "parsing messed up"
   Nothing -> pure ()
@@ -169,6 +171,19 @@ main = do
   -- listen to the PID returned bytestring typingsInstallerPid to close?
 
   threadDelay(1000000)
+
+  let readLoop = loop
+        where
+          loop = do
+            s <- MV.takeMVar dats
+            case s of
+              a -> do
+                putStrLn $ show a
+                MV.putMVar dats s
+                threadDelay(1000000)
+                loop
+
+  forkIO readLoop
 
   -- putStrLn "hey?"
   forkIO $ do
