@@ -153,8 +153,12 @@ mkProcess tsserverLocation = do
 
 data Queue = Queue (MV.MVar [(Maybe Msg)])
 
+getSpanStart :: MsgChild -> Integer
+getSpanStart MsgChild{spans=spans} =
+  head $ map (\MsgSpan{start=start} -> start) spans
+
 toQuickInfoCommand Msg{body=MsgBody{childItems=childItems}} =
-  childItems
+  map getSpanStart childItems
 
 main :: IO ()
 main = do
