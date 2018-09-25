@@ -153,8 +153,8 @@ mkProcess tsserverLocation = do
 
 data Queue = Queue (MV.MVar [(Maybe Msg)])
 
-toQuickInfoCommand Msg{body=body} =
-  body
+toQuickInfoCommand Msg{body=MsgBody{childItems=childItems}} =
+  childItems
 
 main :: IO ()
 main = do
@@ -188,7 +188,7 @@ main = do
               (m:rest) ->
                 case m of
                   Nothing -> MV.putMVar dats rest
-                  Just (Msg a b) -> putStrLn $ "something" ++  show b
+                  Just msg -> putStrLn $ show (toQuickInfoCommand msg)
 
             threadDelay(1000000)
             loop
