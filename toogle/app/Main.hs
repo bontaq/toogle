@@ -157,8 +157,14 @@ getSpanStart :: MsgChild -> Integer
 getSpanStart MsgChild{spans=spans} =
   head $ map (\MsgSpan{start=start} -> start) spans
 
-toQuickInfoCommand Msg{body=MsgBody{childItems=childItems}} =
-  map getSpanStart childItems
+toQuickInfoCommand :: Show a => a -> Integer -> [Char]
+toQuickInfoCommand filePath offset =
+  "{ \"seq\": 2, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
+  ++ (show filePath)
+  ++ ", \"line\": 1, \"offset\": " ++ show (offset) ++ " } }\n"
+
+toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
+  map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
 
 main :: IO ()
 main = do
@@ -192,17 +198,24 @@ main = do
               (m:rest) ->
                 case m of
                   Nothing -> MV.putMVar dats rest
-                  Just msg -> putStrLn $ show (toQuickInfoCommand msg)
+                  Just msg -> do
+                    let commands = toQuickInfoCommands exampleFile msg
+                    putStrLn $ show commands
+                    -- putStrLn $ cmdInput
+                    forkIO $ do
+                      mapM_ (\x -> return $ Streams.write (Just . BC.pack $ x) cmdInput) commands
+                    pure ()
 
             threadDelay(1000000)
             loop
 
-  forkIO readLoop
+  forkIO $ do readLoop
 
   -- putStrLn "hey?"
   forkIO $ do
     Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
     Streams.write (Just . BC.pack $ infoCommand exampleFile) cmdInput
+
 
   -- fascinating.  the commands are one-based offset for line + offset
   -- the server's responses are zero based for lines, 1 based for offset
