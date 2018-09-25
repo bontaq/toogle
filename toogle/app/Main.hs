@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 module Main where
 
 import GHC.Generics
@@ -177,9 +178,17 @@ main = do
           loop = do
             s <- MV.takeMVar dats
             case s of
-              a -> do
-                putStrLn $ show a
+              [] -> do
                 MV.putMVar dats s
+                threadDelay(1000000)
+                loop
+              (m:rest) -> do
+                case m of
+                  Nothing -> MV.putMVar dats rest
+                  Just (Msg a b) -> putStrLn $ show b
+
+                -- putStrLn $ show m
+                MV.putMVar dats rest
                 threadDelay(1000000)
                 loop
 
