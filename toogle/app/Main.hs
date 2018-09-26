@@ -137,7 +137,7 @@ mkOutHandler chan hout = do
 
 mkInHandler :: Handle -> IO (OutputStream ByteString)
 mkInHandler hin = do
-  s <- Streams.handleToOutputStream hin
+  s <- Streams.lockingOutputStream =<< Streams.handleToOutputStream hin
   pure s
 
 fromJust :: Maybe p -> p
@@ -151,8 +151,6 @@ mkProcess tsserverLocation = do
                                                         , std_out = CreatePipe
                                                         , std_err = CreatePipe }
   return (fromJust hin, fromJust hout, fromJust err)
-
-data Queue = Queue (MV.MVar [(Maybe Msg)])
 
 getSpanStart :: MsgChild -> Integer
 getSpanStart MsgChild{spans=spans} =
@@ -197,6 +195,10 @@ main = do
   forkIO $ forever $ do
     cmd <- atomically $ readTChan commandsChannel
     putStrLn $ "command: " ++ show cmd
+    -- aaaaargh!
+--    pid <- forkIO $ Streams.write (Just . BC.pack $ cmd) cmdInput
+--    putStrLn $ show pid
+--    pure ()
 
   -- threadDelay(1000000)
   outTest <- mkInHandler hin
