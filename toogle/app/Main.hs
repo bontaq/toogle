@@ -70,12 +70,11 @@ toJSONFromTS chan = Streams.makeOutputStream $ \m -> case m of
     case result of
       Right json -> do
         ans <- pure $ fromRawJSONToJSON json
+        putStrLn "complete"
         atomically $ writeTChan chan ans
---        msgs <- MV.takeMVar v
---        MV.putMVar v (ans : msgs)
-        putStrLn $ show ans
+        -- putStrLn "wait"
         pure ()
-      Left  _    -> error "parsing messed up"
+      Left  _    ->  putStrLn "parsing messed up"
   Nothing -> pure ()
 
 --
@@ -134,7 +133,7 @@ mkOutHandler chan hout = do
 --    Streams.supply inputStream outStream
   toJSONStream <- toJSONFromTS chan
   forkIO $
-    Streams.supply inputStream toJSONStream
+    Streams.connect inputStream toJSONStream
   pure ()
 
 mkInHandler :: Handle -> IO (OutputStream ByteString)
@@ -169,17 +168,21 @@ toQuickInfoCommand filePath offset =
 toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
   map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
 
-resultHandler :: FilePath -> OutputStream ByteString -> TChan (Maybe Msg) -> IO ()
-resultHandler fp cmdInput chan = do
+resultHandler :: FilePath -> TChan (Maybe Msg) -> IO ()
+resultHandler fp chan = do
   newValue <- atomically $ readTChan chan
+
   case newValue of
     Just msg -> do
+      let cmds = toQuickInfoCommands fp msg
       putStrLn . show $ toQuickInfoCommands fp msg
-      mapM_ (\x -> Streams.write (Just . BC.pack $ x) cmdInput) commands
+--      mapM_ (\x -> forkIO $ do
+--                Streams.write (Just . BC.pack $ x) cmdInput) cmds
+
       -- mapM_ $ forkIO $ do Streams.write (Just . BC.pack) $ msg
     Nothing  -> putStrLn "Nada"
   -- putStrLn $ "read new value: " ++ show newValue
-  resultHandler fp cmdInput chan
+  resultHandler fp chan
 
 main :: IO ()
 main = do
@@ -190,7 +193,7 @@ main = do
   (hin, hout, err) <- mkProcess tsserver
 
   cmdInput <- mkInHandler hin
-  forkIO $ Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
+  Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
 
   -- dats <- MV.newMVar []
 
@@ -198,11 +201,12 @@ main = do
   -- looks like that only happens with larger projects, maybe we need to
   -- listen to the PID returned bytestring typingsInstallerPid to close?
 
-  threadDelay(1000000)
+  -- threadDelay(1000000)
 
   chan <- atomically $ newTChan
+  -- newCmdInput <- mkInHandler hin
+  forkIO $ resultHandler exampleFile chan
   forkIO $ mkOutHandler chan hout
-  forkIO $ resultHandler exampleFile cmdInput chan
 
 
 --  let readLoop = loop
@@ -229,10 +233,10 @@ main = do
 --            loop
 
 
-  -- putStrLn "hey?"
   forkIO $ do
     Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
     Streams.write (Just . BC.pack $ infoCommand exampleFile) cmdInput
+    Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
 
   -- forkIO $ do readLoop
 
