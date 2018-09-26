@@ -13,7 +13,6 @@ import Control.Monad
 import Control.Monad.STM
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM.TChan
-import qualified Control.Concurrent.MVar as MV
 import Data.Attoparsec.ByteString as Atto
 import           Data.Aeson
 -- import           Data.Aeson.Lens        (key, _String)
@@ -168,21 +167,17 @@ toQuickInfoCommand filePath offset =
 toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
   map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
 
-resultHandler :: FilePath -> TChan (Maybe Msg) -> IO ()
-resultHandler fp chan = do
+resultHandler :: FilePath -> TChan (Maybe Msg) -> TChan String -> IO ()
+resultHandler fp chan commandsChannel = do
   newValue <- atomically $ readTChan chan
 
   case newValue of
     Just msg -> do
       let cmds = toQuickInfoCommands fp msg
       putStrLn . show $ toQuickInfoCommands fp msg
---      mapM_ (\x -> forkIO $ do
---                Streams.write (Just . BC.pack $ x) cmdInput) cmds
-
-      -- mapM_ $ forkIO $ do Streams.write (Just . BC.pack) $ msg
+      atomically $ writeTChan commandsChannel $ show cmds
     Nothing  -> putStrLn "Nada"
-  -- putStrLn $ "read new value: " ++ show newValue
-  resultHandler fp chan
+  resultHandler fp chan commandsChannel
 
 main :: IO ()
 main = do
@@ -195,43 +190,21 @@ main = do
   cmdInput <- mkInHandler hin
   Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
 
-  -- dats <- MV.newMVar []
-
   -- ok, so we have to wait until the telemetryEventName projectInfo
   -- looks like that only happens with larger projects, maybe we need to
   -- listen to the PID returned bytestring typingsInstallerPid to close?
+  commandsChannel <- atomically $ newTChan
+  forkIO $ forever $ do
+    cmd <- atomically $ readTChan commandsChannel
+    putStrLn $ "command: " ++ show cmd
 
   -- threadDelay(1000000)
+  outTest <- mkInHandler hin
 
   chan <- atomically $ newTChan
   -- newCmdInput <- mkInHandler hin
-  forkIO $ resultHandler exampleFile chan
+  forkIO $ resultHandler exampleFile chan commandsChannel
   forkIO $ mkOutHandler chan hout
-
-
---  let readLoop = loop
---        where
---          loop = do
---            s <- MV.takeMVar dats
---            case s of
---              [] -> do
---                MV.putMVar dats s
---                threadDelay(1000000)
---                loop
---              (m:rest) ->
---                case m of
---                  Nothing -> MV.putMVar dats rest
---                  Just msg -> do
---                    let commands = toQuickInfoCommands exampleFile msg
---                    -- putStrLn "wot"
---                    putStrLn $ "something" ++  show commands
---                    -- putStrLn $ cmdInput
---                    mapM_ (\x -> Streams.write (Just . BC.pack $ x) cmdInput) commands
---                    pure ()
---
---            threadDelay(1000000)
---            loop
-
 
   forkIO $ do
     Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
