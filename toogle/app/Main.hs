@@ -48,6 +48,16 @@ writeConsole = Streams.makeOutputStream $ \m -> case m of
     BC.putStr $ (BC.append "" bs)
   Nothing -> pure ()
 
+writeStream :: OutputStream ByteString -> IO (OutputStream ByteString)
+writeStream os = Streams.makeOutputStream $ \m -> case m of
+  Just bs -> do
+    forkIO $ do
+      Streams.write (Just . BC.pack . show $ bs) os
+      BC.putStr $ (BC.append "" bs)
+    pure ()
+    -- pure ()
+  Nothing -> pure ()
+
 --
 -- Parsing
 --
@@ -106,11 +116,12 @@ parseToCommand :: FilePath -> InputStream (Maybe Msg) -> IO (InputStream ByteStr
 parseToCommand fp f = Streams.makeInputStream $ do
   m <- Streams.read f
   case m of
+    _ -> pure . Just . BC.pack . show $ navtreeCommand fp
     Just a -> case a of
       Just z -> do
         putStrLn . show $ z
         --pure $ Just . BC.pack . show $ toQuickInfoCommands fp z
-        pure $ Just . BC.pack . show $ navtreeCommand fp
+        pure . Just . BC.pack . show $ navtreeCommand fp
       Nothing -> pure $ Just . BC.pack $ ""
     Nothing -> pure $ Just . BC.pack $ ""
 
@@ -228,9 +239,6 @@ main = do
   termOut <- writeConsole
 
   -- cmdOutput <- mkOutHandler hout
-  toAtto <- parseToAtto cmdOutput
-  toMsg <- parseToMsg toAtto
-  toCmd <- parseToCommand exampleFile toMsg
     -- pure ()
     -- toStr <- parseToStr toMsg
 
@@ -238,12 +246,17 @@ main = do
 
   (is, os) <- Concurrent.makeChanPipe
   forkIO $ do
-    Streams.connect is cmdInput
+    Streams.supply is cmdInput
   forkIO $ do
     -- cmdInput <- mkInHandler hin
     Streams.write (Just . BC.pack $ openCommand exampleFile) os
-    Streams.write (Just . BC.pack $ navtreeCommand exampleFile) os
-    Streams.connectTo os toCmd
+    -- Streams.write (Just . BC.pack $ navtreeCommand exampleFile) os
+  forkIO $ do
+    toAtto <- parseToAtto cmdOutput
+    toMsg <- parseToMsg toAtto
+    toCmd <- parseToCommand exampleFile toMsg
+    outout <- writeStream os
+    Streams.supply toCmd termOut
 
 
   -- ok, so we have to wait until the telemetryEventName projectInfo
