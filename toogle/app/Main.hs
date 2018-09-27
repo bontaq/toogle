@@ -62,19 +62,31 @@ handleRaw = do
   -- just consumes and returns the rest
   takeByteString
 
-toJSONFromTS :: TChan (Maybe Msg) -> IO (OutputStream ByteString)
-toJSONFromTS chan = Streams.makeOutputStream $ \m -> case m of
-  Just raw -> do
-    result <- pure $ Atto.parseOnly handleRaw raw
-    case result of
-      Right json -> do
-        ans <- pure $ fromRawJSONToJSON json
-        putStrLn "complete"
-        atomically $ writeTChan chan ans
-        -- putStrLn "wait"
-        pure ()
-      Left  _    ->  putStrLn "parsing messed up"
-  Nothing -> pure ()
+--toJSONFromTS :: IO (OutputStream ByteString)
+--toJSONFromTS = Streams.makeOutputStream $ \m -> case m of
+--  Just raw -> do
+--    result <- pure $ Atto.parseOnly handleRaw raw
+--    case result of
+--      Right json -> do
+--        ans <- pure $ fromRawJSONToJSON json
+--        putStrLn "complete"
+--        -- atomically $ writeTChan ans
+--        -- putStrLn "wait"
+--        pure ans
+--      Left  _    ->  putStrLn "parsing messed up"
+--  Nothing -> pure ()
+
+parseToAtto :: InputStream ByteString -> IO (InputStream ByteString)
+parseToAtto f = Streams.makeInputStream $ do
+  m <- Streams.read f
+  case m of
+    Just raw -> do
+      result <- pure $ Atto.parseOnly handleRaw raw
+      case result of
+        Right a -> return $ Just a
+
+--  raw <- read input
+--  out <- Streams.makeOutputStream
 
 --
 -- From attoparsec to real JSON
@@ -124,16 +136,16 @@ data Command = Command {
   } deriving (Show, Generic)
 instance ToJSON Command
 
-mkOutHandler :: TChan (Maybe Msg) -> Handle -> IO ()
-mkOutHandler chan hout = do
+mkOutHandler :: Handle -> IO (InputStream ByteString)
+mkOutHandler hout = do
   inputStream <- Streams.handleToInputStream hout
+  pure inputStream
 --  outStream <- writeConsole
 --  forkIO $
 --    Streams.supply inputStream outStream
-  toJSONStream <- toJSONFromTS chan
-  forkIO $
-    Streams.connect inputStream toJSONStream
-  pure ()
+--  toJSONStream <- toJSONFromTS
+--  forkIO $
+--    Streams.connect inputStream toJSONStream
 
 mkInHandler :: Handle -> IO (OutputStream ByteString)
 mkInHandler hin = do
@@ -175,6 +187,7 @@ resultHandler fp chan commandsChannel = do
       putStrLn . show $ toQuickInfoCommands fp msg
       atomically $ writeTChan commandsChannel $ show cmds
     Nothing  -> putStrLn "Nada"
+
   resultHandler fp chan commandsChannel
 
 main :: IO ()
@@ -186,15 +199,23 @@ main = do
   (hin, hout, err) <- mkProcess tsserver
 
   cmdInput <- mkInHandler hin
+  forkIO $ do
+    cmdOutput <- mkOutHandler hout
+    termOut <- writeConsole
+    toAtto <- parseToAtto cmdOutput
+    -- cmdout -> prs -> termOut
+    Streams.connect toAtto termOut
+
   Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
 
   -- ok, so we have to wait until the telemetryEventName projectInfo
   -- looks like that only happens with larger projects, maybe we need to
   -- listen to the PID returned bytestring typingsInstallerPid to close?
-  commandsChannel <- atomically $ newTChan
-  forkIO $ forever $ do
-    cmd <- atomically $ readTChan commandsChannel
-    putStrLn $ "command: " ++ show cmd
+
+--  commandsChannel <- atomically $ newTChan
+--  forkIO $ forever $ do
+--    cmd <- atomically $ readTChan commandsChannel
+--    putStrLn $ "command: " ++ show cmd
     -- aaaaargh!
 --    pid <- forkIO $ Streams.write (Just . BC.pack $ cmd) cmdInput
 --    putStrLn $ show pid
@@ -203,10 +224,12 @@ main = do
   -- threadDelay(1000000)
   outTest <- mkInHandler hin
 
-  chan <- atomically $ newTChan
+
+  -- chan <- atomically $ newTChan
   -- newCmdInput <- mkInHandler hin
-  forkIO $ resultHandler exampleFile chan commandsChannel
-  forkIO $ mkOutHandler chan hout
+  -- forkIO $ resultHandler exampleFile chan commandsChannel
+
+  -- forkIO $ mkOutHandler hout
 
   forkIO $ do
     Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
