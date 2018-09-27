@@ -99,7 +99,15 @@ parseToStr f = Streams.makeInputStream $ do
   m <- Streams.read f
   case m of
     Just a -> pure $ Just $ BC.pack $ show a
-  -- pure $ show m
+
+parseToCommand :: FilePath -> InputStream (Maybe Msg) -> IO (InputStream ByteString)
+parseToCommand fp f = Streams.makeInputStream $ do
+  m <- Streams.read f
+  case m of
+    Just a -> case a of
+      Just z -> pure $ Just . BC.pack . show $ toQuickInfoCommands fp z
+      Nothing -> pure $ Just . BC.pack $ "whoopwhoop"
+    Nothing -> pure $ Just . BC.pack $ "whoop"
 
 --
 -- From attoparsec to real JSON
@@ -217,10 +225,11 @@ main = do
     termOut <- writeConsole
     toAtto <- parseToAtto cmdOutput
     toMsg <- parseToMsg toAtto
-    toStr <- parseToStr toMsg
+    toCmd <- parseToCommand exampleFile toMsg
+    -- toStr <- parseToStr toMsg
 
     -- cmdout -> prs -> termOut
-    Streams.connect toStr termOut
+    Streams.connect toCmd termOut
 
   Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
 
