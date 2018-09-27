@@ -23,6 +23,7 @@ import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as BC
 import           System.IO.Streams (Generator, InputStream, OutputStream)
 import qualified System.IO.Streams as Streams
+import qualified System.IO.Streams.Concurrent as Concurrent
 
 import Lib
 
@@ -222,9 +223,8 @@ main = do
 
   cmdInput <- mkInHandler hin
 
-  forkIO $ do
-    Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
-    Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
+  Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
+  Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
 
   forkIO $ do
     termOut <- writeConsole
@@ -233,11 +233,12 @@ main = do
     toAtto <- parseToAtto cmdOutput
     toMsg <- parseToMsg toAtto
     toCmd <- parseToCommand exampleFile toMsg
+    pure ()
     -- toStr <- parseToStr toMsg
 
     -- cmdout -> prs -> termOut
-    Streams.connect toCmd cmdInput
 
+  Concurrent.makeChanPipe (parseToCommand exampleFile toMsg) cmdInput
 
   -- ok, so we have to wait until the telemetryEventName projectInfo
   -- looks like that only happens with larger projects, maybe we need to
