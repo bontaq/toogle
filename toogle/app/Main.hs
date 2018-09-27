@@ -93,6 +93,7 @@ parseToMsg f = Streams.makeInputStream $ do
     Just raw -> do
       let result = decodeStrict raw :: Maybe Msg
       pure $ Just result
+    Nothing -> pure Nothing
 
 parseToStr :: InputStream (Maybe Msg) -> IO (InputStream ByteString)
 parseToStr f = Streams.makeInputStream $ do
@@ -107,7 +108,7 @@ parseToCommand fp f = Streams.makeInputStream $ do
     Just a -> case a of
       Just z -> pure $ Just . BC.pack . show $ toQuickInfoCommands fp z
       Nothing -> pure $ Just . BC.pack $ "whoopwhoop"
-    Nothing -> pure $ Just . BC.pack $ "whoop"
+    Nothing -> pure Nothing
 
 --
 -- From attoparsec to real JSON
@@ -196,7 +197,7 @@ toQuickInfoCommand filePath offset =
   ++ ", \"line\": 1, \"offset\": " ++ show (offset) ++ " } }\n"
 
 toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
-  map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
+  foldr (++) "" $ map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
 
 resultHandler :: FilePath -> TChan (Maybe Msg) -> TChan String -> IO ()
 resultHandler fp chan commandsChannel = do
@@ -220,6 +221,11 @@ main = do
   (hin, hout, err) <- mkProcess tsserver
 
   cmdInput <- mkInHandler hin
+
+  forkIO $ do
+    Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
+    Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
+
   forkIO $ do
     termOut <- writeConsole
 
@@ -230,9 +236,8 @@ main = do
     -- toStr <- parseToStr toMsg
 
     -- cmdout -> prs -> termOut
-    Streams.connect toCmd termOut
+    Streams.connect toCmd cmdInput
 
-  Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
 
   -- ok, so we have to wait until the telemetryEventName projectInfo
   -- looks like that only happens with larger projects, maybe we need to
@@ -248,7 +253,7 @@ main = do
 --    pure ()
 
   -- threadDelay(1000000)
-  outTest <- mkInHandler hin
+  -- outTest <- mkInHandler hin
 
 
   -- chan <- atomically $ newTChan
@@ -257,10 +262,8 @@ main = do
 
   -- forkIO $ mkOutHandler hout
 
-  forkIO $ do
-    Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
-    Streams.write (Just . BC.pack $ infoCommand exampleFile) cmdInput
-    Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
+    -- Streams.write (Just . BC.pack $ infoCommand exampleFile) cmdInput
+    -- Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
 
   -- forkIO $ do readLoop
 
