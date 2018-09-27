@@ -172,7 +172,7 @@ mkOutHandler hout = do
 
 mkInHandler :: Handle -> IO (OutputStream ByteString)
 mkInHandler hin = do
-  s <- Streams.lockingOutputStream =<< Streams.handleToOutputStream hin
+  s <- Streams.handleToOutputStream hin
   pure s
 
 fromJust :: Maybe p -> p
@@ -226,19 +226,22 @@ main = do
   Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
   Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
 
-  forkIO $ do
-    termOut <- writeConsole
+  termOut <- writeConsole
 
-    cmdOutput <- mkOutHandler hout
-    toAtto <- parseToAtto cmdOutput
-    toMsg <- parseToMsg toAtto
-    toCmd <- parseToCommand exampleFile toMsg
-    pure ()
+  cmdOutput <- mkOutHandler hout
+  toAtto <- parseToAtto cmdOutput
+  toMsg <- parseToMsg toAtto
+  toCmd <- parseToCommand exampleFile toMsg
+    -- pure ()
     -- toStr <- parseToStr toMsg
 
     -- cmdout -> prs -> termOut
 
-  Concurrent.makeChanPipe (parseToCommand exampleFile toMsg) cmdInput
+  (is, os) <- Concurrent.makeChanPipe
+  forkIO $
+    Streams.connectTo os toCmd
+  forkIO $
+    Streams.connect is cmdInput
 
   -- ok, so we have to wait until the telemetryEventName projectInfo
   -- looks like that only happens with larger projects, maybe we need to
