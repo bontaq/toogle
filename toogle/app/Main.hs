@@ -108,8 +108,8 @@ parseToCommand fp f = Streams.makeInputStream $ do
   case m of
     Just a -> case a of
       Just z -> pure $ Just . BC.pack . show $ toQuickInfoCommands fp z
-      Nothing -> pure $ Just . BC.pack $ "whoopwhoop"
-    Nothing -> pure Nothing
+      Nothing -> pure $ Nothing
+    Nothing -> pure $ Nothing
 
 --
 -- From attoparsec to real JSON
@@ -171,9 +171,8 @@ mkOutHandler hout = do
 --    Streams.connect inputStream toJSONStream
 
 mkInHandler :: Handle -> IO (OutputStream ByteString)
-mkInHandler hin = do
-  s <- Streams.handleToOutputStream hin
-  pure s
+mkInHandler hin =
+  Streams.handleToOutputStream hin
 
 fromJust :: Maybe p -> p
 fromJust Nothing  = error "Does not exist"
@@ -219,16 +218,13 @@ main = do
   let tsserver    = curDir ++ "/tsserver/node_modules/typescript/bin/tsserver"
       exampleFile = curDir ++ "/testing.ts"
 
-  (hin, hout, err) <- mkProcess tsserver
-
-  cmdInput <- mkInHandler hin
-
-  Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
-  Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
+  -- (hin, hout, err) <- mkProcess tsserver
+  (cmdInput, cmdOutput, _, _) <- Streams.runInteractiveProcess
+    tsserver [] Nothing Nothing
 
   termOut <- writeConsole
 
-  cmdOutput <- mkOutHandler hout
+  -- cmdOutput <- mkOutHandler hout
   toAtto <- parseToAtto cmdOutput
   toMsg <- parseToMsg toAtto
   toCmd <- parseToCommand exampleFile toMsg
@@ -238,10 +234,13 @@ main = do
     -- cmdout -> prs -> termOut
 
   (is, os) <- Concurrent.makeChanPipe
-  forkIO $
-    Streams.connectTo os toCmd
-  forkIO $
+  forkIO $ do
+    -- cmdInput <- mkInHandler hin
+    Streams.write (Just . BC.pack $ openCommand exampleFile) os
+    Streams.write (Just . BC.pack $ navtreeCommand exampleFile) os
     Streams.connect is cmdInput
+  forkIO $ do
+    Streams.connectTo os toCmd
 
   -- ok, so we have to wait until the telemetryEventName projectInfo
   -- looks like that only happens with larger projects, maybe we need to
