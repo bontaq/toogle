@@ -221,8 +221,9 @@ main = do
 
   cmdInput <- mkInHandler hin
   forkIO $ do
-    cmdOutput <- mkOutHandler hout
     termOut <- writeConsole
+
+    cmdOutput <- mkOutHandler hout
     toAtto <- parseToAtto cmdOutput
     toMsg <- parseToMsg toAtto
     toCmd <- parseToCommand exampleFile toMsg
