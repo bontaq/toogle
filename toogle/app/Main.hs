@@ -84,9 +84,22 @@ parseToAtto f = Streams.makeInputStream $ do
       result <- pure $ Atto.parseOnly handleRaw raw
       case result of
         Right a -> return $ Just a
+    Nothing  -> return $ Nothing
 
---  raw <- read input
---  out <- Streams.makeOutputStream
+parseToMsg :: InputStream ByteString -> IO (InputStream (Maybe Msg))
+parseToMsg f = Streams.makeInputStream $ do
+  m <- Streams.read f
+  case m of
+    Just raw -> do
+      let result = decodeStrict raw :: Maybe Msg
+      pure $ Just result
+
+parseToStr :: InputStream (Maybe Msg) -> IO (InputStream ByteString)
+parseToStr f = Streams.makeInputStream $ do
+  m <- Streams.read f
+  case m of
+    Just a -> pure $ Just $ BC.pack $ show a
+  -- pure $ show m
 
 --
 -- From attoparsec to real JSON
@@ -203,8 +216,11 @@ main = do
     cmdOutput <- mkOutHandler hout
     termOut <- writeConsole
     toAtto <- parseToAtto cmdOutput
+    toMsg <- parseToMsg toAtto
+    toStr <- parseToStr toMsg
+
     -- cmdout -> prs -> termOut
-    Streams.connect toAtto termOut
+    Streams.connect toStr termOut
 
   Streams.write (Just . BC.pack $ openCommand exampleFile) cmdInput
 
