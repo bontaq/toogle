@@ -45,7 +45,7 @@ infoCommand filePath =
 writeConsole :: IO (OutputStream ByteString)
 writeConsole = Streams.makeOutputStream $ \m -> case m of
   Just bs ->
-    BC.putStrLn $ (BC.append "this is a line: " bs)
+    BC.putStr $ (BC.append "" bs)
   Nothing -> pure ()
 
 --
@@ -107,9 +107,12 @@ parseToCommand fp f = Streams.makeInputStream $ do
   m <- Streams.read f
   case m of
     Just a -> case a of
-      Just z -> pure $ Just . BC.pack . show $ toQuickInfoCommands fp z
-      Nothing -> pure $ Nothing
-    Nothing -> pure $ Nothing
+      Just z -> do
+        putStrLn . show $ z
+        --pure $ Just . BC.pack . show $ toQuickInfoCommands fp z
+        pure $ Just . BC.pack . show $ navtreeCommand fp
+      Nothing -> pure $ Just . BC.pack $ ""
+    Nothing -> pure $ Just . BC.pack $ ""
 
 --
 -- From attoparsec to real JSON
@@ -235,12 +238,13 @@ main = do
 
   (is, os) <- Concurrent.makeChanPipe
   forkIO $ do
+    Streams.connect is cmdInput
+  forkIO $ do
     -- cmdInput <- mkInHandler hin
     Streams.write (Just . BC.pack $ openCommand exampleFile) os
     Streams.write (Just . BC.pack $ navtreeCommand exampleFile) os
-    Streams.connect is cmdInput
-  forkIO $ do
     Streams.connectTo os toCmd
+
 
   -- ok, so we have to wait until the telemetryEventName projectInfo
   -- looks like that only happens with larger projects, maybe we need to
