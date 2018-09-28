@@ -131,7 +131,7 @@ resultHandler :: FilePath -> TChan ByteString -> TChan ByteString -> IO ()
 resultHandler fp inchan outchan = do
   newValue <- atomically $ readTChan inchan
   putStrLn . show $ newValue
-  atomically $ writeTChan outchan $ BC.pack $ (navtreeCommand fp)
+  -- atomically $ writeTChan outchan $ BC.pack $ (navtreeCommand fp)
   resultHandler fp inchan outchan
 
 outputHandler :: Handle -> TChan ByteString -> IO ()
@@ -139,8 +139,9 @@ outputHandler hin chan = do
   newValue <- atomically $ readTChan chan
   putStrLn "heah"
   putStrLn $ BC.unpack $ newValue
-  hPutStrLn hin $ BC.unpack newValue
-  -- outputHandler hin chan
+  hPutStr hin $ BC.unpack newValue
+  hFlush hin
+  outputHandler hin chan
 
 inputHandler :: Handle -> TChan ByteString -> IO ()
 inputHandler hout chan = do
@@ -165,11 +166,14 @@ main = do
   fromOutputChan <- atomically $ newTChan
   forInputChan   <- atomically $ newTChan
 
-  return $ writeTChan forInputChan $ BC.pack $ openCommand exampleFile
+
+  -- threadDelay(1000000)
 
   forkIO $
-    do outputHandler hin forInputChan
-  threadDelay(1000000)
+    do
+      outputHandler hin forInputChan
+  atomically $ writeTChan forInputChan $ BC.pack $ openCommand exampleFile
+  -- threadDelay(1000000)
 
   forkIO $
     do inputHandler hout fromOutputChan
