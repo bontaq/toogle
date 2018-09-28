@@ -213,11 +213,19 @@ toQuickInfoCommand filePath offset =
 toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
   foldr (++) "" $ map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
 
-resultHandler :: FilePath -> TChan String -> IO ()
-resultHandler fp chan = do
-  newValue <- atomically $ readTChan chan
+resultHandler :: FilePath -> TChan String -> TChan String -> IO ()
+resultHandler fp inchan outchan = do
+  newValue <- atomically $ readTChan inchan
   putStrLn . show $ newValue
-  resultHandler fp chan
+  atomically $ writeTChan outchan (navtreeCommand fp)
+  resultHandler fp inchan outchan
+
+outputHandler :: Handle -> TChan String -> IO ()
+outputHandler hin chan = do
+  newValue <- atomically $ readTChan chan
+  -- putStrLn . show $ newValue
+  hPutStrLn hin newValue
+  outputHandler hin chan
 
 inputHandler :: Handle -> TChan String -> IO ()
 inputHandler hout chan = do
@@ -236,6 +244,9 @@ main = do
 
   (hin, hout, err) <- mkProcess tsserver
 
+  hSetBuffering hin  NoBuffering
+  hSetBuffering hout NoBuffering
+
   fromOutputChan <- atomically $ newTChan
   forInputChan   <- atomically $ newTChan
 
@@ -244,6 +255,8 @@ main = do
   forkIO $
     do inputHandler hout fromOutputChan
   forkIO $
-    do resultHandler exampleFile fromOutputChan
+    do resultHandler exampleFile fromOutputChan forInputChan
+  forkIO $
+    do outputHandler hin forInputChan
 
   threadDelay(1000000000)
