@@ -21,9 +21,6 @@ import qualified Data.Aeson.Types       as DAT
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as BC
-import           System.IO.Streams (Generator, InputStream, OutputStream)
-import qualified System.IO.Streams as Streams
-import qualified System.IO.Streams.Concurrent as Concurrent
 
 import Lib
 
@@ -42,22 +39,6 @@ infoCommand filePath =
   ++ (show filePath)
   ++ ", \"line\": 1, \"offset\": 63 } }\n"
 
-writeConsole :: IO (OutputStream ByteString)
-writeConsole = Streams.makeOutputStream $ \m -> case m of
-  Just bs ->
-    BC.putStr $ (BC.append "" bs)
-  Nothing -> pure ()
-
-writeStream :: OutputStream ByteString -> IO (OutputStream ByteString)
-writeStream os = Streams.makeOutputStream $ \m -> case m of
-  Just bs -> do
-    forkIO $ do
-      Streams.write (Just . BC.pack . show $ bs) os
-      BC.putStr $ (BC.append "" bs)
-    pure ()
-    -- pure ()
-  Nothing -> pure ()
-
 --
 -- Parsing
 --
@@ -72,58 +53,6 @@ handleRaw = do
   _ <- Atto.takeWhile $ Atto.notInClass "{"
   -- just consumes and returns the rest
   takeByteString
-
---toJSONFromTS :: IO (OutputStream ByteString)
---toJSONFromTS = Streams.makeOutputStream $ \m -> case m of
---  Just raw -> do
---    result <- pure $ Atto.parseOnly handleRaw raw
---    case result of
---      Right json -> do
---        ans <- pure $ fromRawJSONToJSON json
---        putStrLn "complete"
---        -- atomically $ writeTChan ans
---        -- putStrLn "wait"
---        pure ans
---      Left  _    ->  putStrLn "parsing messed up"
---  Nothing -> pure ()
-
-parseToAtto :: InputStream ByteString -> IO (InputStream ByteString)
-parseToAtto f = Streams.makeInputStream $ do
-  m <- Streams.read f
-  case m of
-    Just raw -> do
-      result <- pure $ Atto.parseOnly handleRaw raw
-      case result of
-        Right a -> return $ Just a
-    Nothing  -> return $ Nothing
-
-parseToMsg :: InputStream ByteString -> IO (InputStream (Maybe Msg))
-parseToMsg f = Streams.makeInputStream $ do
-  m <- Streams.read f
-  case m of
-    Just raw -> do
-      let result = decodeStrict raw :: Maybe Msg
-      pure $ Just result
-    Nothing -> pure Nothing
-
-parseToStr :: InputStream (Maybe Msg) -> IO (InputStream ByteString)
-parseToStr f = Streams.makeInputStream $ do
-  m <- Streams.read f
-  case m of
-    Just a -> pure $ Just $ BC.pack $ show a
-
-parseToCommand :: FilePath -> InputStream (Maybe Msg) -> IO (InputStream ByteString)
-parseToCommand fp f = Streams.makeInputStream $ do
-  m <- Streams.read f
-  case m of
-    _ -> pure . Just . BC.pack . show $ navtreeCommand fp
-    Just a -> case a of
-      Just z -> do
-        putStrLn . show $ z
-        --pure $ Just . BC.pack . show $ toQuickInfoCommands fp z
-        pure . Just . BC.pack . show $ navtreeCommand fp
-      Nothing -> pure $ Just . BC.pack $ ""
-    Nothing -> pure $ Just . BC.pack $ ""
 
 --
 -- From attoparsec to real JSON
@@ -172,21 +101,6 @@ data Command = Command {
   , arguments :: Argument
   } deriving (Show, Generic)
 instance ToJSON Command
-
-mkOutHandler :: Handle -> IO (InputStream ByteString)
-mkOutHandler hout = do
-  inputStream <- Streams.handleToInputStream hout
-  pure inputStream
---  outStream <- writeConsole
---  forkIO $
---    Streams.supply inputStream outStream
---  toJSONStream <- toJSONFromTS
---  forkIO $
---    Streams.connect inputStream toJSONStream
-
-mkInHandler :: Handle -> IO (OutputStream ByteString)
-mkInHandler hin =
-  Streams.handleToOutputStream hin
 
 fromJust :: Maybe p -> p
 fromJust Nothing  = error "Does not exist"
