@@ -232,65 +232,9 @@ main = do
   let tsserver    = curDir ++ "/tsserver/node_modules/typescript/bin/tsserver"
       exampleFile = curDir ++ "/testing.ts"
 
-  -- (hin, hout, err) <- mkProcess tsserver
-  (cmdInput, cmdOutput, _, _) <- Streams.runInteractiveProcess
-    tsserver [] Nothing Nothing
+  (hin, hout, err) <- mkProcess tsserver
 
-  termOut <- writeConsole
-
-  -- cmdOutput <- mkOutHandler hout
-    -- pure ()
-    -- toStr <- parseToStr toMsg
-
-    -- cmdout -> prs -> termOut
-
-  (is, os) <- Concurrent.makeChanPipe
-  forkIO $ do
-    Streams.supply is cmdInput
-  forkIO $ do
-    -- cmdInput <- mkInHandler hin
-    Streams.write (Just . BC.pack $ openCommand exampleFile) os
-    -- Streams.write (Just . BC.pack $ navtreeCommand exampleFile) os
-  forkIO $ do
-    toAtto <- parseToAtto cmdOutput
-    toMsg <- parseToMsg toAtto
-    toCmd <- parseToCommand exampleFile toMsg
-    outout <- writeStream os
-    Streams.supply toCmd termOut
-
-
-  -- ok, so we have to wait until the telemetryEventName projectInfo
-  -- looks like that only happens with larger projects, maybe we need to
-  -- listen to the PID returned bytestring typingsInstallerPid to close?
-
---  commandsChannel <- atomically $ newTChan
---  forkIO $ forever $ do
---    cmd <- atomically $ readTChan commandsChannel
---    putStrLn $ "command: " ++ show cmd
-    -- aaaaargh!
---    pid <- forkIO $ Streams.write (Just . BC.pack $ cmd) cmdInput
---    putStrLn $ show pid
---    pure ()
-
-  -- threadDelay(1000000)
-  -- outTest <- mkInHandler hin
-
-
-  -- chan <- atomically $ newTChan
-  -- newCmdInput <- mkInHandler hin
-  -- forkIO $ resultHandler exampleFile chan commandsChannel
-
-  -- forkIO $ mkOutHandler hout
-
-    -- Streams.write (Just . BC.pack $ infoCommand exampleFile) cmdInput
-    -- Streams.write (Just . BC.pack $ navtreeCommand exampleFile) cmdInput
-
-  -- forkIO $ do readLoop
-
-  -- fascinating.  the commands are one-based offset for line + offset
-  -- the server's responses are zero based for lines, 1 based for offset
-  -- it seems.
-
-  -- outHandler needs to write to an mvar.
+  fromOutputChan <- atomically $ newTChan
+  forInputChan   <- atomically $ newTChan
 
   threadDelay(1000000000)
