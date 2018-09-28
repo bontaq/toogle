@@ -226,6 +226,12 @@ resultHandler fp chan commandsChannel = do
 
   resultHandler fp chan commandsChannel
 
+inputHandler :: Handle -> TChan String -> IO ()
+inputHandler hout chan = do
+  line <- hGetLine hout
+  putStrLn line
+  inputHandler hout chan
+
 main :: IO ()
 main = do
   curDir <- makeAbsolute =<< getCurrentDirectory
@@ -236,5 +242,10 @@ main = do
 
   fromOutputChan <- atomically $ newTChan
   forInputChan   <- atomically $ newTChan
+
+  hPutStrLn hin (openCommand exampleFile)
+
+  forkIO $
+    do inputHandler hout fromOutputChan
 
   threadDelay(1000000000)
