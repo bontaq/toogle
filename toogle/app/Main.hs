@@ -127,27 +127,26 @@ toQuickInfoCommand filePath offset =
 toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
   foldr (++) "" $ map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
 
-resultHandler :: FilePath -> TChan String -> TChan String -> IO ()
+resultHandler :: FilePath -> TChan ByteString -> TChan ByteString -> IO ()
 resultHandler fp inchan outchan = do
   newValue <- atomically $ readTChan inchan
   putStrLn . show $ newValue
-  atomically $ writeTChan outchan (navtreeCommand fp)
+  atomically $ writeTChan outchan $ BC.pack . show $ (navtreeCommand fp)
   resultHandler fp inchan outchan
 
-outputHandler :: Handle -> TChan String -> IO ()
+outputHandler :: Handle -> TChan ByteString -> IO ()
 outputHandler hin chan = do
   newValue <- atomically $ readTChan chan
-  -- putStrLn . show $ newValue
-  hPutStrLn hin newValue
+  hPutStrLn hin $ show $ newValue
   outputHandler hin chan
 
-inputHandler :: Handle -> TChan String -> IO ()
+inputHandler :: Handle -> TChan ByteString -> IO ()
 inputHandler hout chan = do
   line <- hGetLine hout
   case length line of
     1 -> pure ()
     _ -> atomically $ do
-      writeTChan chan line
+      writeTChan chan (BC.pack $ line)
   inputHandler hout chan
 
 main :: IO ()
@@ -164,13 +163,16 @@ main = do
   fromOutputChan <- atomically $ newTChan
   forInputChan   <- atomically $ newTChan
 
-  hPutStrLn hin (openCommand exampleFile)
+  return $ writeTChan forInputChan $ BC.pack . show $ openCommand exampleFile
+
+  forkIO $
+    do outputHandler hin forInputChan
+  threadDelay(1000000)
 
   forkIO $
     do inputHandler hout fromOutputChan
   forkIO $
     do resultHandler exampleFile fromOutputChan forInputChan
-  forkIO $
-    do outputHandler hin forInputChan
+
 
   threadDelay(1000000000)
