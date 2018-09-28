@@ -137,8 +137,10 @@ resultHandler fp inchan outchan = do
 outputHandler :: Handle -> TChan ByteString -> IO ()
 outputHandler hin chan = do
   newValue <- atomically $ readTChan chan
+  putStrLn "heah"
+  putStrLn . show $ newValue
   hPutStrLn hin $ show $ newValue
-  outputHandler hin chan
+  -- outputHandler hin chan
 
 inputHandler :: Handle -> TChan ByteString -> IO ()
 inputHandler hout chan = do
