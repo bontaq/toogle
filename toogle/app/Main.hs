@@ -122,7 +122,7 @@ toQuickInfoCommand :: Show a => a -> Integer -> [Char]
 toQuickInfoCommand filePath offset =
   "{ \"seq\": 2, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
   ++ (show filePath)
-  ++ ", \"line\": 1, \"offset\": " ++ show (offset) ++ " } }\n"
+  ++ ", \"line\": 1, \"offset\": " ++ show (offset + 1) ++ " } }\n"
 
 toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
   foldr (++) "" $ map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
