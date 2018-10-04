@@ -131,7 +131,11 @@ resultHandler :: FilePath -> TChan ByteString -> TChan ByteString -> IO ()
 resultHandler fp inchan outchan = do
   newValue <- atomically $ readTChan inchan
   putStrLn . show $ newValue
-  -- atomically $ writeTChan outchan $ BC.pack $ (navtreeCommand fp)
+  case fromRawJSONToJSON newValue of
+    Just msg -> do
+      let cmds = toQuickInfoCommands fp msg
+      atomically $ writeTChan outchan $ BC.pack cmds
+    _ -> pure ()
   resultHandler fp inchan outchan
 
 outputHandler :: Handle -> TChan ByteString -> IO ()
@@ -167,6 +171,7 @@ main = do
 
   forkIO $ outputHandler hin forInputChan
   atomically $ writeTChan forInputChan $ BC.pack $ openCommand exampleFile
+  atomically $ writeTChan forInputChan $ BC.pack $ navtreeCommand exampleFile
 
   forkIO $ inputHandler hout fromOutputChan
   forkIO $ resultHandler exampleFile fromOutputChan forInputChan
