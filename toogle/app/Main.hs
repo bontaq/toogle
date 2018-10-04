@@ -79,7 +79,13 @@ data Msg = Msg {
   seq :: Integer
   , body :: MsgBody
   } deriving (Show, Generic)
-instance FromJSON Msg
+instance FromJSON Msg where
+  parseJSON = withObject "Response" $ \o -> do
+    type_ <- o .: "type"
+    seq_ <- o .: "seq"
+    body_ <- o .: "body"
+    case type_ of
+      "request" -> Msg seq_ $ decodeStrict body_ :: MsgBody
 
 fromRawJSONToJSON ::
   ByteString -> Maybe Msg
