@@ -79,17 +79,24 @@ data Msg = Msg {
   seq :: Integer
   , body :: MsgBody
   } deriving (Show, Generic)
-instance FromJSON Msg where
-  parseJSON = withObject "Response" $ \o -> do
-    type_ <- o .: "type"
-    seq_ <- o .: "seq"
-    body_ <- o .: "body"
-    case type_ of
-      "request" -> Msg seq_ $ decodeStrict body_ :: MsgBody
+instance FromJSON Msg
 
 fromRawJSONToJSON ::
   ByteString -> Maybe Msg
 fromRawJSONToJSON a = decodeStrict a :: Maybe Msg
+
+
+data Partial = Partial {
+  _command :: String
+  } deriving (Show, Generic)
+instance FromJSON Partial
+
+decoderRing' "navtree-full" = fromRawJSONToJSON
+decoderRing' "quickinfo" = fromRawJSONToJSON
+
+decoderRing msg = do
+  cmd <- (decodeStrict msg :: Maybe Partial)
+  return $ decoderRing' (_command cmd)
 
 --
 -- From real JSON to commands for the server
@@ -140,7 +147,9 @@ resultHandler fp inchan outchan = do
   case fromRawJSONToJSON newValue of
     Just msg -> do
       let cmds = toQuickInfoCommands fp msg
-      atomically $ writeTChan outchan $ BC.pack cmds
+      putStrLn "----"
+      putStrLn . show $ cmds
+      -- atomically $ writeTChan outchan $ BC.pack cmds
     _ -> pure ()
   resultHandler fp inchan outchan
 
