@@ -75,16 +75,14 @@ data MsgBody = MsgBody {
   } deriving (Show, Generic)
 instance FromJSON MsgBody
 
-data Msg = Msg {
+data Msg a = Msg {
   seq :: Integer
-  , body :: MsgBody
+  , body :: a
   } deriving (Show, Generic)
-instance FromJSON Msg
+instance (FromJSON a) => FromJSON (Msg a)
 
-fromRawJSONToJSON ::
-  ByteString -> Maybe Msg
-fromRawJSONToJSON a = decodeStrict a :: Maybe Msg
-
+fromRawJSONToJSON :: ByteString -> Maybe (Msg MsgBody)
+fromRawJSONToJSON = decodeStrict
 
 data Partial = Partial {
   _command :: String
