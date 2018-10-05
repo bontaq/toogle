@@ -156,7 +156,7 @@ toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
 resultHandler :: FilePath -> TChan ByteString -> TChan ByteString -> IO ()
 resultHandler fp inchan outchan = do
   newValue <- atomically $ readTChan inchan
-  putStrLn . show $ newValue
+  -- putStrLn . show $ newValue
   cmd <- pure $ (decodeStrict newValue :: Maybe Partial)
   case decoderRing newValue of
     Just msg -> case msg of
@@ -177,7 +177,7 @@ outputHandler :: Handle -> TChan ByteString -> IO ()
 outputHandler hin chan = do
   newValue <- atomically $ readTChan chan
 
-  putStrLn $ BC.unpack $ newValue
+  -- putStrLn $ BC.unpack $ newValue
   hPutStr hin $ BC.unpack newValue
   outputHandler hin chan
 
