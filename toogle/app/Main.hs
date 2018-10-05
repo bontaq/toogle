@@ -97,9 +97,14 @@ data Partial = Partial {
   } deriving (Show, Generic)
 instance FromJSON Partial
 
-decoderRing' :: a -> ByteString -> Maybe (Msg )
-decoderRing' "navtree-full" = fromRawJSONToJSON
-decoderRing' "quickinfo" = handleQuickInfoResponse
+data Response =
+  T1 (Maybe (Msg QuickInfoBody))
+  | T2 (Maybe (Msg MsgBody))
+  deriving Show
+
+decoderRing' :: String -> ByteString -> Response
+decoderRing' "navtree-full" bs = T2 $ fromRawJSONToJSON bs
+decoderRing' "quickinfo" bs = T1 $ handleQuickInfoResponse bs
 
 decoderRing msg = do
   cmd <- (decodeStrict msg :: Maybe Partial)
