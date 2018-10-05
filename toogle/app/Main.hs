@@ -75,6 +75,11 @@ data MsgBody = MsgBody {
   } deriving (Show, Generic)
 instance FromJSON MsgBody
 
+data QuickInfoBody = QuickInfoBody {
+  displayString :: String
+  } deriving (Show, Generic)
+instance FromJSON QuickInfoBody
+
 data Msg a = Msg {
   seq :: Integer
   , body :: a
@@ -84,13 +89,17 @@ instance (FromJSON a) => FromJSON (Msg a)
 fromRawJSONToJSON :: ByteString -> Maybe (Msg MsgBody)
 fromRawJSONToJSON = decodeStrict
 
+handleQuickInfoResponse :: ByteString -> Maybe (Msg QuickInfoBody)
+handleQuickInfoResponse = decodeStrict
+
 data Partial = Partial {
   _command :: String
   } deriving (Show, Generic)
 instance FromJSON Partial
 
+decoderRing' :: a -> ByteString -> Maybe (Msg )
 decoderRing' "navtree-full" = fromRawJSONToJSON
-decoderRing' "quickinfo" = fromRawJSONToJSON
+decoderRing' "quickinfo" = handleQuickInfoResponse
 
 decoderRing msg = do
   cmd <- (decodeStrict msg :: Maybe Partial)
@@ -142,12 +151,12 @@ resultHandler :: FilePath -> TChan ByteString -> TChan ByteString -> IO ()
 resultHandler fp inchan outchan = do
   newValue <- atomically $ readTChan inchan
   putStrLn . show $ newValue
-  case fromRawJSONToJSON newValue of
+  case decoderRing newValue of
     Just msg -> do
       let cmds = toQuickInfoCommands fp msg
       putStrLn "----"
-      putStrLn . show $ cmds
-      -- atomically $ writeTChan outchan $ BC.pack cmds
+      putStrLn . show $ msg
+      atomically $ writeTChan outchan $ BC.pack cmds
     _ -> pure ()
   resultHandler fp inchan outchan
 
