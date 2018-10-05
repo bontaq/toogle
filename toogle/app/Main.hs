@@ -108,7 +108,7 @@ decoderRing' "quickinfo" bs = T1 $ handleQuickInfoResponse bs
 
 decoderRing msg = do
   cmd <- (decodeStrict msg :: Maybe Partial)
-  return $ decoderRing' (_command cmd)
+  return $ decoderRing' (_command cmd) msg
 
 --
 -- From real JSON to commands for the server
@@ -157,11 +157,16 @@ resultHandler fp inchan outchan = do
   newValue <- atomically $ readTChan inchan
   putStrLn . show $ newValue
   case decoderRing newValue of
-    Just msg -> do
-      let cmds = toQuickInfoCommands fp msg
-      putStrLn "----"
-      putStrLn . show $ msg
-      atomically $ writeTChan outchan $ BC.pack cmds
+    Just msg -> case msg of
+      T1 (Just m) -> do
+        putStrLn "Here in T1"
+        putStrLn . show $ m
+      T2 (Just m) -> do
+        putStrLn "Here in T2"
+        putStrLn . show $ msg
+        let cmds = toQuickInfoCommands fp m
+        atomically $ writeTChan outchan $ BC.pack cmds
+
     _ -> pure ()
   resultHandler fp inchan outchan
 
