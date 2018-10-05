@@ -93,7 +93,7 @@ handleQuickInfoResponse :: ByteString -> Maybe (Msg QuickInfoBody)
 handleQuickInfoResponse = decodeStrict
 
 data Partial = Partial {
-  _command :: String
+  command :: String
   } deriving (Show, Generic)
 instance FromJSON Partial
 
@@ -106,9 +106,10 @@ decoderRing' :: String -> ByteString -> Response
 decoderRing' "navtree-full" bs = T2 $ fromRawJSONToJSON bs
 decoderRing' "quickinfo" bs = T1 $ handleQuickInfoResponse bs
 
+decoderRing :: ByteString -> Maybe Response
 decoderRing msg = do
   cmd <- (decodeStrict msg :: Maybe Partial)
-  return $ decoderRing' (_command cmd) msg
+  return $ decoderRing' (command cmd) msg
 
 --
 -- From real JSON to commands for the server
@@ -119,13 +120,13 @@ data Argument = Argument {
   } deriving (Show, Generic)
 instance ToJSON Argument
 
-data Command = Command {
-  seq :: Integer
-  , _type :: String
-  , command :: String
-  , arguments :: Argument
-  } deriving (Show, Generic)
-instance ToJSON Command
+-- data Command = Command {
+--   seq :: Integer
+--   , _type :: String
+--   , command :: String
+--   , arguments :: Argument
+--   } deriving (Show, Generic)
+-- instance ToJSON Command
 
 fromJust :: Maybe p -> p
 fromJust Nothing  = error "Does not exist"
@@ -156,6 +157,7 @@ resultHandler :: FilePath -> TChan ByteString -> TChan ByteString -> IO ()
 resultHandler fp inchan outchan = do
   newValue <- atomically $ readTChan inchan
   putStrLn . show $ newValue
+  cmd <- pure $ (decodeStrict newValue :: Maybe Partial)
   case decoderRing newValue of
     Just msg -> case msg of
       T1 (Just m) -> do
@@ -167,7 +169,8 @@ resultHandler fp inchan outchan = do
         let cmds = toQuickInfoCommands fp m
         atomically $ writeTChan outchan $ BC.pack cmds
 
-    _ -> pure ()
+    _ -> do
+      pure ()
   resultHandler fp inchan outchan
 
 outputHandler :: Handle -> TChan ByteString -> IO ()
