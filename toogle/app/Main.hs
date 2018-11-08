@@ -48,12 +48,6 @@ infoCommand filePath =
 -- (content-length & a newline)
 -- so we need to dump those before we can parse the response with aeson
 
-handleRaw = do
-  -- now that's a lazy way to get to the JSON
-  _ <- Atto.takeWhile $ Atto.notInClass "{"
-  -- just consumes and returns the rest
-  takeByteString
-
 --
 -- From attoparsec to real JSON
 --
@@ -205,6 +199,7 @@ main = do
   forInputChan   <- atomically $ newTChan
 
   forkIO $ outputHandler hin forInputChan
+  -- send out initial commands
   atomically $ writeTChan forInputChan $ BC.pack $ openCommand exampleFile
   atomically $ writeTChan forInputChan $ BC.pack $ navtreeCommand exampleFile
 
