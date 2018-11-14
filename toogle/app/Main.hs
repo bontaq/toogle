@@ -13,10 +13,10 @@ import Control.Monad
 import Control.Monad.STM
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM.TChan
-import Data.Attoparsec.ByteString as Atto
+-- import Data.Attoparsec.ByteString as Atto
 import           Data.Aeson
 -- import           Data.Aeson.Lens        (key, _String)
-import qualified Data.Aeson.Types       as DAT
+-- import qualified Data.Aeson.Types       as DAT
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as S
@@ -42,15 +42,11 @@ infoCommand filePath =
 --
 -- Parsing
 --
--- raw -> attoparsec -> aeson
+-- raw -> aeson
 --
 -- TSServer returns two lines we don't need before hitting the raw JSON
 -- (content-length & a newline)
 -- so we need to dump those before we can parse the response with aeson
-
---
--- From attoparsec to real JSON
---
 
 data MsgSpan = MsgSpan {
   start :: Integer
@@ -126,14 +122,6 @@ fromJust :: Maybe p -> p
 fromJust Nothing  = error "Does not exist"
 fromJust (Just t) = t
 
-mkProcess :: FilePath -> IO (Handle, Handle, Handle)
-mkProcess tsserverLocation = do
-  (hin, hout, err, pid) <-
-    createProcess_ "tsserver" (proc tsserverLocation []){ std_in  = CreatePipe
-                                                        , std_out = CreatePipe
-                                                        , std_err = CreatePipe }
-  return (fromJust hin, fromJust hout, fromJust err)
-
 getSpanStart :: MsgChild -> Integer
 getSpanStart MsgChild{spans=spans} =
   head $ map (\MsgSpan{start=start} -> start) spans
@@ -167,11 +155,18 @@ resultHandler fp inchan outchan = do
       pure ()
   resultHandler fp inchan outchan
 
+mkProcess :: FilePath -> IO (Handle, Handle, Handle)
+mkProcess tsserverLocation = do
+  (hin, hout, err, pid) <-
+    createProcess_ "tsserver" (proc tsserverLocation []){ std_in  = CreatePipe
+                                                        , std_out = CreatePipe
+                                                        , std_err = CreatePipe }
+  return (fromJust hin, fromJust hout, fromJust err)
+
 outputHandler :: Handle -> TChan ByteString -> IO ()
 outputHandler hin chan = do
   newValue <- atomically $ readTChan chan
 
-  -- putStrLn $ BC.unpack $ newValue
   hPutStr hin $ BC.unpack newValue
   outputHandler hin chan
 
