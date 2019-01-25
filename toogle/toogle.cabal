@@ -51,6 +51,7 @@ executable toogle-exe
               , aeson
               , stm
               , toogle
+              , mtl
   default-language: Haskell2010
 
 test-suite toogle-test

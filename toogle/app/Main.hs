@@ -13,10 +13,7 @@ import Control.Monad
 import Control.Monad.STM
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.STM.TChan
--- import Data.Attoparsec.ByteString as Atto
 import           Data.Aeson
--- import           Data.Aeson.Lens        (key, _String)
--- import qualified Data.Aeson.Types       as DAT
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as S
