@@ -85,13 +85,13 @@ data Partial = Partial {
 instance FromJSON Partial
 
 data Response =
-  T1 (Maybe (Msg QuickInfoBody))
-  | T2 (Maybe (Msg MsgBody))
+  RQuickInfo (Maybe (Msg QuickInfoBody))
+  | RMessage (Maybe (Msg MsgBody))
   deriving Show
 
 decoderRing' :: String -> ByteString -> Response
-decoderRing' "navtree-full" bs = T2 $ fromRawJSONToJSON bs
-decoderRing' "quickinfo" bs = T1 $ handleQuickInfoResponse bs
+decoderRing' "navtree-full" bs = RMessage $ fromRawJSONToJSON bs
+decoderRing' "quickinfo" bs = RQuickInfo $ handleQuickInfoResponse bs
 
 decoderRing :: ByteString -> Maybe Response
 decoderRing msg = do
@@ -126,8 +126,8 @@ getSpanStart MsgChild{spans=spans} =
 toQuickInfoCommand :: Show a => a -> Integer -> [Char]
 toQuickInfoCommand filePath offset =
   "{ \"seq\": 2, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
-  ++ (show filePath)
-  ++ ", \"line\": 1, \"offset\": " ++ show (offset + 1) ++ " } }\n"
+  <> (show filePath)
+  <> ", \"line\": 1, \"offset\": " ++ show (offset + 1) ++ " } }\n"
 
 toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
   foldr (++) "" $ map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
@@ -135,18 +135,20 @@ toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
 resultHandler :: FilePath -> TChan ByteString -> TChan ByteString -> IO ()
 resultHandler fp inchan outchan = do
   newValue <- atomically $ readTChan inchan
-  -- putStrLn . show $ newValue
+  putStrLn . show $ newValue
   cmd <- pure $ (decodeStrict newValue :: Maybe Partial)
   case decoderRing newValue of
     Just msg -> case msg of
-      T1 (Just m) -> do
-        putStrLn "Here in T1"
+      RQuickInfo (Just m) -> do
+        putStrLn "Here in RQuickInfo"
         putStrLn . show $ m
-      T2 (Just m) -> do
-        putStrLn "Here in T2"
+      RMessage (Just m) -> do
+        putStrLn "Here in RMessage"
         putStrLn . show $ msg
         let cmds = toQuickInfoCommands fp m
         atomically $ writeTChan outchan $ BC.pack cmds
+      _ -> do
+        putStrLn . show $ msg
 
     _ -> do
       pure ()
@@ -180,7 +182,9 @@ main :: IO ()
 main = do
   curDir <- makeAbsolute =<< getCurrentDirectory
   let tsserver    = curDir ++ "/tsserver/node_modules/typescript/bin/tsserver"
-      exampleFile = curDir ++ "/testing.ts"
+      exampleFile' = curDir ++ "/testing.ts"
+      -- exampleFile = "/Users/iandavidson/jupiter/app/www/src/index.ts"
+      exampleFile = "/Users/iandavidson/jupiter/packages/@ecomm/cart/panel/Panel.ts"
 
   (hin, hout, err) <- mkProcess tsserver
 
