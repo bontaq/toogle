@@ -135,6 +135,12 @@ getSpanStart MsgChild{spans=spans} =
 
 toQuickInfoCommand :: Show a => a -> Integer -> [Char]
 toQuickInfoCommand filePath offset =
+  "{ \"seq\": 2, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
+  <> (show filePath)
+  <> ", \"line\": 1, \"offset\": " ++ show (offset + 1) ++ " } }\n"
+
+toTypeDefinitionCommand :: Show a => a -> Integer -> [Char]
+toTypeDefinitionCommand filePath offset =
   "{ \"seq\": 2, \"type\": \"request\", \"command\": \"typeDefinition\", \"arguments\": { \"file\": "
   <> (show filePath)
   <> ", \"line\": 1, \"offset\": " ++ show (offset + 1) ++ " } }\n"
