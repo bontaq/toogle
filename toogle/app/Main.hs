@@ -67,8 +67,15 @@ data QuickInfoBody = QuickInfoBody {
   } deriving (Show, Generic)
 instance FromJSON QuickInfoBody
 
+data Location = Location {
+  line :: Integer,
+  offset :: Integer
+  } deriving (Show, Generic)
+instance FromJSON Location
+
 data TypeDefinitionBody = TypeDefinitionBody {
-  file :: String
+  file :: String,
+  start :: Location
   } deriving (Show, Generic)
 instance FromJSON TypeDefinitionBody
 
@@ -135,7 +142,7 @@ getSpanStart MsgChild{spans=spans} =
 
 toQuickInfoCommand :: Show a => a -> Integer -> [Char]
 toQuickInfoCommand filePath offset =
-  "{ \"seq\": 2, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
+  "{ \"seq\": 1, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
   <> (show filePath)
   <> ", \"line\": 1, \"offset\": " ++ show (offset + 1) ++ " } }\n"
 
@@ -164,6 +171,7 @@ resultHandler fp inchan outchan = do
         let cmds = toQuickInfoCommands fp m
         atomically $ writeTChan outchan $ BC.pack cmds
       _ -> do
+        putStrLn "Unknown message what do"
         putStrLn . show $ msg
 
     _ -> do
