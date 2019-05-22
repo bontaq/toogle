@@ -67,6 +67,11 @@ data QuickInfoBody = QuickInfoBody {
   } deriving (Show, Generic)
 instance FromJSON QuickInfoBody
 
+data TypeDefinitionBody = TypeDefinitionBody {
+  file :: String
+  } deriving (Show, Generic)
+instance FromJSON TypeDefinitionBody
+
 data Msg a = Msg {
   seq :: Integer
   , body :: a
@@ -79,6 +84,9 @@ fromRawJSONToJSON = decodeStrict
 handleQuickInfoResponse :: ByteString -> Maybe (Msg QuickInfoBody)
 handleQuickInfoResponse = decodeStrict
 
+handleTypeDefinitionResponse :: ByteString -> Maybe (Msg [TypeDefinitionBody])
+handleTypeDefinitionResponse = decodeStrict
+
 data Partial = Partial {
   command :: String
   } deriving (Show, Generic)
@@ -87,11 +95,13 @@ instance FromJSON Partial
 data Response =
   RQuickInfo (Maybe (Msg QuickInfoBody))
   | RMessage (Maybe (Msg MsgBody))
+  | RTypeDefinition (Maybe (Msg [TypeDefinitionBody]))
   deriving Show
 
 decoderRing' :: String -> ByteString -> Response
 decoderRing' "navtree-full" bs = RMessage $ fromRawJSONToJSON bs
 decoderRing' "quickinfo" bs = RQuickInfo $ handleQuickInfoResponse bs
+decoderRing' "typeDefinition" bs = RTypeDefinition $ handleTypeDefinitionResponse bs
 
 decoderRing :: ByteString -> Maybe Response
 decoderRing msg = do
@@ -125,7 +135,7 @@ getSpanStart MsgChild{spans=spans} =
 
 toQuickInfoCommand :: Show a => a -> Integer -> [Char]
 toQuickInfoCommand filePath offset =
-  "{ \"seq\": 2, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
+  "{ \"seq\": 2, \"type\": \"request\", \"command\": \"typeDefinition\", \"arguments\": { \"file\": "
   <> (show filePath)
   <> ", \"line\": 1, \"offset\": " ++ show (offset + 1) ++ " } }\n"
 
