@@ -9,6 +9,12 @@
                    {"text":"doSomething","kind":"const","kindModifiers":"",
                     "spans":[{"start":62,"length":51}],
                     "nameSpan":{"start":62,"length":11}}]}}
+* first goal should be to traverse
+  - Note taken on [2019-05-23 Thu 17:04] \\
+    Might look like taking any
+    alias types
+    -> running defintion finder
+    -> gatherying types from that file
 * DONE Let's get this parsing with aeson
 ** DONE First we need to drop the first part of output
 *** DONE Even more first, we need to make sure the messages are separated
