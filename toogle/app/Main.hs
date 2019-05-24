@@ -102,7 +102,7 @@ data Partial = Partial {
 instance FromJSON Partial
 
 data Response =
-  RQuickInfo (Maybe (Msg QuickInfoBody))
+    RQuickInfo (Maybe (Msg QuickInfoBody))
   | RMessage (Maybe (Msg MsgBody))
   | RTypeDefinition (Maybe (Msg [TypeDefinitionBody]))
   deriving Show
@@ -191,10 +191,12 @@ resultHandler fp inchan outchan = do
       RTypeDefinition (Just m) -> do
         putStrLn "Here in RTypeDefinition"
         putStrLn . show $ msg
+        let Msg{body=[TypeDefinitionBody{file=file}]} = m
+        putStrLn $ "Well well " <> file
+        atomically $ writeTChan outchan $ BC.pack (navtreeCommand file)
       _ -> do
         putStrLn "Unknown message what do"
         putStrLn . show $ msg
-
     _ -> do
       pure ()
   resultHandler fp inchan outchan
