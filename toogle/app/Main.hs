@@ -183,17 +183,25 @@ resultHandler fp inchan outchan = do
 
         putStrLn "Here in RQuickInfo"
         putStrLn . show $ m
+
       RMessage (Just m) -> do
         putStrLn "Here in RMessage"
         putStrLn . show $ msg
         let cmds = toQuickInfoCommands fp m
         atomically $ writeTChan outchan $ BC.pack cmds
+
       RTypeDefinition (Just m) -> do
         putStrLn "Here in RTypeDefinition"
         putStrLn . show $ msg
-        let Msg{body=[TypeDefinitionBody{file=file}]} = m
-        putStrLn $ "Well well " <> file
-        atomically $ writeTChan outchan $ BC.pack (navtreeCommand file)
+        let Msg{body=body} = m
+            files = map (\TypeDefinitionBody{file=file} -> file) body
+        putStrLn $ "Well well " <> (show files)
+
+        if length files > 0 then
+          atomically $ writeTChan outchan $ BC.pack (navtreeCommand (head files))
+        else
+          pure ()
+
       _ -> do
         putStrLn "Unknown message what do"
         putStrLn . show $ msg
