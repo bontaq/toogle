@@ -167,7 +167,7 @@ getOffsetFromQuickInfo Msg{body=QuickInfoBody{start=Location{offset=offset}}} = 
 resultHandler :: FilePath -> TChan ByteString -> TChan ByteString -> IO ()
 resultHandler fp inchan outchan = do
   newValue <- atomically $ readTChan inchan
-  putStrLn . show $ newValue
+  -- putStrLn . show $ newValue
   cmd <- pure $ (decodeStrict newValue :: Maybe Partial)
   case decoderRing newValue of
     Just msg -> case msg of
@@ -181,30 +181,32 @@ resultHandler fp inchan outchan = do
               atomically $ writeTChan outchan $ BC.pack cmd
           False -> pure ()
 
-        putStrLn "Here in RQuickInfo"
-        putStrLn . show $ m
+        -- putStrLn "Here in RQuickInfo"
+        -- putStrLn . show $ m
 
       RMessage (Just m) -> do
-        putStrLn "Here in RMessage"
-        putStrLn . show $ msg
+        -- putStrLn "Here in RMessage"
+        -- putStrLn . show $ msg
         let cmds = toQuickInfoCommands fp m
         atomically $ writeTChan outchan $ BC.pack cmds
 
       RTypeDefinition (Just m) -> do
-        putStrLn "Here in RTypeDefinition"
-        putStrLn . show $ msg
+        -- putStrLn "Here in RTypeDefinition"
+        -- putStrLn . show $ msg
         let Msg{body=body} = m
             files = map (\TypeDefinitionBody{file=file} -> file) body
-        putStrLn $ "Well well " <> (show files)
+        -- putStrLn $ "Well well " <> (show files)
 
-        if length files > 0 then
+        if length files > 0 then do
+          putStrLn . show $ files
           atomically $ writeTChan outchan $ BC.pack (navtreeCommand (head files))
         else
           pure ()
 
       _ -> do
-        putStrLn "Unknown message what do"
-        putStrLn . show $ msg
+        -- putStrLn "Unknown message what do"
+        -- putStrLn . show $ msg
+        pure ()
     _ -> do
       pure ()
   resultHandler fp inchan outchan
