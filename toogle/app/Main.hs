@@ -18,6 +18,7 @@ import           Data.Aeson
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as BC
+import Data.List
 
 import Lib
 
@@ -63,7 +64,8 @@ data MsgBody = MsgBody {
 instance FromJSON MsgBody
 
 data QuickInfoBody = QuickInfoBody {
-  displayString :: String
+  displayString :: String,
+  start :: Location
   } deriving (Show, Generic)
 instance FromJSON QuickInfoBody
 
@@ -155,6 +157,13 @@ toTypeDefinitionCommand filePath offset =
 toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
   foldr (++) "" $ map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
 
+checkIsAlias :: Msg QuickInfoBody -> Bool
+checkIsAlias Msg{body=QuickInfoBody{displayString=displayString}} =
+  "(alias)" `isPrefixOf` displayString
+
+getOffsetFromQuickInfo :: Msg QuickInfoBody -> Integer
+getOffsetFromQuickInfo Msg{body=QuickInfoBody{start=Location{offset=offset}}} = offset
+
 resultHandler :: FilePath -> TChan ByteString -> TChan ByteString -> IO ()
 resultHandler fp inchan outchan = do
   newValue <- atomically $ readTChan inchan
@@ -163,6 +172,15 @@ resultHandler fp inchan outchan = do
   case decoderRing newValue of
     Just msg -> case msg of
       RQuickInfo (Just m) -> do
+        -- so I think here, if it's an alias, emit new typeDefinition commands
+        case (checkIsAlias m) of
+          True ->
+            let offset = getOffsetFromQuickInfo m
+                cmd = toTypeDefinitionCommand fp offset
+            in
+              atomically $ writeTChan outchan $ BC.pack cmd
+          False -> pure ()
+
         putStrLn "Here in RQuickInfo"
         putStrLn . show $ m
       RMessage (Just m) -> do
@@ -170,6 +188,9 @@ resultHandler fp inchan outchan = do
         putStrLn . show $ msg
         let cmds = toQuickInfoCommands fp m
         atomically $ writeTChan outchan $ BC.pack cmds
+      RTypeDefinition (Just m) -> do
+        putStrLn "Here in RTypeDefinition"
+        putStrLn . show $ msg
       _ -> do
         putStrLn "Unknown message what do"
         putStrLn . show $ msg
