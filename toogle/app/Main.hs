@@ -144,8 +144,8 @@ getSpanStart :: MsgChild -> (Integer, Integer)
 getSpanStart MsgChild{spans=spans} =
   head $ map (\MsgSpan{line=line,start=start} -> (line, start)) spans
 
-toQuickInfoCommand :: Show a => a -> Integer -> Integer -> [Char]
-toQuickInfoCommand filePath line offset =
+toQuickInfoCommand :: Show a => a -> (Integer, Integer) -> [Char]
+toQuickInfoCommand filePath (line, offset) =
   "{ \"seq\": 1, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
   <> (show filePath)
   <> ", \"line\": " <> show line <> ", \"offset\": " ++ show (offset + 1) ++ " } }\n"
