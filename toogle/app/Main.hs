@@ -48,7 +48,7 @@ infoCommand filePath =
 
 data MsgSpan = MsgSpan {
   start :: Integer
-  , line :: Integer
+  , line :: Maybe Integer
   } deriving (Show, Generic)
 instance FromJSON MsgSpan
 
@@ -140,15 +140,19 @@ fromJust :: Maybe p -> p
 fromJust Nothing  = error "Does not exist"
 fromJust (Just t) = t
 
-getSpanStart :: MsgChild -> (Integer, Integer)
+getSpanStart :: MsgChild -> (Maybe Integer, Integer)
 getSpanStart MsgChild{spans=spans} =
   head $ map (\MsgSpan{line=line,start=start} -> (line, start)) spans
 
-toQuickInfoCommand :: Show a => a -> (Integer, Integer) -> [Char]
-toQuickInfoCommand filePath (line, offset) =
+toQuickInfoCommand :: Show a => a -> (Maybe Integer, Integer) -> [Char]
+toQuickInfoCommand filePath (Just line, offset) =
   "{ \"seq\": 1, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
   <> (show filePath)
   <> ", \"line\": " <> show line <> ", \"offset\": " ++ show (offset + 1) ++ " } }\n"
+toQuickInfoCommand filePath (Nothing, offset) =
+  "{ \"seq\": 1, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
+  <> (show filePath)
+  <> ", \"line\": " <> "1" <> ", \"offset\": " ++ show (offset + 1) ++ " } }\n"
 
 toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
   foldr (++) "" $ map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
