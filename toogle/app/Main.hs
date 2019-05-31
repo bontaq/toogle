@@ -184,7 +184,7 @@ resultHandler fp inchan outchan = do
             let (line, offset) = getOffsetFromQuickInfo m
                 cmd = toTypeDefinitionCommand fp line offset
             in do
-              putStrLn $ cmd
+              -- putStrLn $ cmd
               atomically $ writeTChan outchan $ BC.pack cmd
           False -> pure ()
 
@@ -195,6 +195,7 @@ resultHandler fp inchan outchan = do
         -- putStrLn "Here in RMessage"
         -- putStrLn . show $ msg
         let cmds = toQuickInfoCommands fp m
+        putStrLn cmds
         atomically $ writeTChan outchan $ BC.pack cmds
 
       RTypeDefinition (Just m) -> do
