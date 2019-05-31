@@ -1,3 +1,6 @@
+#+STARTUP: showeverything
+#+STARTUP: indent
+
 * Example response from navtree-full
   - Note taken on [2018-09-19 Wed 20:31] \\
     {"seq":0,"type":"response","command":"navtree-full","request_seq":1,
@@ -9,6 +12,11 @@
                    {"text":"doSomething","kind":"const","kindModifiers":"",
                     "spans":[{"start":62,"length":51}],
                     "nameSpan":{"start":62,"length":11}}]}}
+
+* Puzzle me this
+  - Note taken on [2019-05-31 Fri 08:14] \\
+    Why isn't it opening more files?  Specifically, no type request is
+    going out for some local aliases?
 * first goal should be to traverse
   - Note taken on [2019-05-23 Thu 17:04] \\
     Might look like taking any

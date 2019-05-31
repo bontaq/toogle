@@ -199,7 +199,7 @@ resultHandler fp inchan outchan = do
 
         if length files > 0 then do
           putStrLn . show $ files
-          atomically $ writeTChan outchan $ BC.pack (navtreeCommand (head files))
+          -- atomically $ writeTChan outchan $ BC.pack (navtreeCommand (head files))
         else
           pure ()
 
@@ -255,7 +255,6 @@ main = do
   -- send out initial commands
   atomically $ writeTChan forInputChan $ BC.pack $ openCommand exampleFile
   atomically $ writeTChan forInputChan $ BC.pack $ navtreeCommand exampleFile
-
   forkIO $ inputHandler hout fromOutputChan
   forkIO $ resultHandler exampleFile fromOutputChan forInputChan
 
