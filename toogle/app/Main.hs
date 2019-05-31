@@ -111,6 +111,7 @@ decoderRing' :: String -> ByteString -> Response
 decoderRing' "navtree-full" bs = RMessage $ fromRawJSONToJSON bs
 decoderRing' "quickinfo" bs = RQuickInfo $ handleQuickInfoResponse bs
 decoderRing' "typeDefinition" bs = RTypeDefinition $ handleTypeDefinitionResponse bs
+decoderRing' "definition" bs = RTypeDefinition $ handleTypeDefinitionResponse bs
 
 decoderRing :: ByteString -> Maybe Response
 decoderRing msg = do
@@ -148,11 +149,11 @@ toQuickInfoCommand filePath offset =
   <> (show filePath)
   <> ", \"line\": 1, \"offset\": " ++ show (offset + 1) ++ " } }\n"
 
-toTypeDefinitionCommand :: Show a => a -> Integer -> [Char]
-toTypeDefinitionCommand filePath offset =
-  "{ \"seq\": 2, \"type\": \"request\", \"command\": \"typeDefinition\", \"arguments\": { \"file\": "
+toTypeDefinitionCommand :: Show a => a -> Integer -> Integer -> [Char]
+toTypeDefinitionCommand filePath line offset =
+  "{ \"seq\": 2, \"type\": \"request\", \"command\": \"definition\", \"arguments\": { \"file\": "
   <> (show filePath)
-  <> ", \"line\": 1, \"offset\": " ++ show (offset + 1) ++ " } }\n"
+  <> ", \"line\": " <> show (line) <> ", \"offset\": " ++ show (offset) ++ " } }\n"
 
 toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
   foldr (++) "" $ map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
@@ -161,13 +162,13 @@ checkIsAlias :: Msg QuickInfoBody -> Bool
 checkIsAlias Msg{body=QuickInfoBody{displayString=displayString}} =
   "(alias)" `isPrefixOf` displayString
 
-getOffsetFromQuickInfo :: Msg QuickInfoBody -> Integer
-getOffsetFromQuickInfo Msg{body=QuickInfoBody{start=Location{offset=offset}}} = offset
+getOffsetFromQuickInfo :: Msg QuickInfoBody -> (Integer, Integer)
+getOffsetFromQuickInfo Msg{body=QuickInfoBody{start=Location{line=line,offset=offset}}} = (line, offset)
 
 resultHandler :: FilePath -> TChan ByteString -> TChan ByteString -> IO ()
 resultHandler fp inchan outchan = do
   newValue <- atomically $ readTChan inchan
-  -- putStrLn . show $ newValue
+  putStrLn . show $ newValue
   cmd <- pure $ (decodeStrict newValue :: Maybe Partial)
   case decoderRing newValue of
     Just msg -> case msg of
@@ -175,9 +176,10 @@ resultHandler fp inchan outchan = do
         -- so I think here, if it's an alias, emit new typeDefinition commands
         case (checkIsAlias m) of
           True ->
-            let offset = getOffsetFromQuickInfo m
-                cmd = toTypeDefinitionCommand fp offset
-            in
+            let (line, offset) = getOffsetFromQuickInfo m
+                cmd = toTypeDefinitionCommand fp line offset
+            in do
+              putStrLn $ cmd
               atomically $ writeTChan outchan $ BC.pack cmd
           False -> pure ()
 
