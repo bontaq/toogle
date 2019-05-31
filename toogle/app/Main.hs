@@ -48,6 +48,7 @@ infoCommand filePath =
 
 data MsgSpan = MsgSpan {
   start :: Integer
+  , line :: Integer
   } deriving (Show, Generic)
 instance FromJSON MsgSpan
 
@@ -139,24 +140,24 @@ fromJust :: Maybe p -> p
 fromJust Nothing  = error "Does not exist"
 fromJust (Just t) = t
 
-getSpanStart :: MsgChild -> Integer
+getSpanStart :: MsgChild -> (Integer, Integer)
 getSpanStart MsgChild{spans=spans} =
-  head $ map (\MsgSpan{start=start} -> start) spans
+  head $ map (\MsgSpan{line=line,start=start} -> (line, start)) spans
 
-toQuickInfoCommand :: Show a => a -> Integer -> [Char]
-toQuickInfoCommand filePath offset =
+toQuickInfoCommand :: Show a => a -> Integer -> Integer -> [Char]
+toQuickInfoCommand filePath line offset =
   "{ \"seq\": 1, \"type\": \"request\", \"command\": \"quickinfo\", \"arguments\": { \"file\": "
   <> (show filePath)
-  <> ", \"line\": 1, \"offset\": " ++ show (offset + 1) ++ " } }\n"
+  <> ", \"line\": " <> show line <> ", \"offset\": " ++ show (offset + 1) ++ " } }\n"
+
+toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
+  foldr (++) "" $ map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
 
 toTypeDefinitionCommand :: Show a => a -> Integer -> Integer -> [Char]
 toTypeDefinitionCommand filePath line offset =
   "{ \"seq\": 2, \"type\": \"request\", \"command\": \"definition\", \"arguments\": { \"file\": "
   <> (show filePath)
   <> ", \"line\": " <> show (line) <> ", \"offset\": " ++ show (offset) ++ " } }\n"
-
-toQuickInfoCommands filePath Msg{body=MsgBody{childItems=childItems}} =
-  foldr (++) "" $ map (\x -> toQuickInfoCommand filePath $ getSpanStart x) childItems
 
 checkIsAlias :: Msg QuickInfoBody -> Bool
 checkIsAlias Msg{body=QuickInfoBody{displayString=displayString}} =
@@ -201,7 +202,7 @@ resultHandler fp inchan outchan = do
 
         if length files > 0 then do
           putStrLn . show $ files
-          -- atomically $ writeTChan outchan $ BC.pack (navtreeCommand (head files))
+          atomically $ writeTChan outchan $ BC.pack (navtreeCommand (head files))
         else
           pure ()
 
